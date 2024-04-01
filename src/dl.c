@@ -283,7 +283,7 @@ static void resetArenaAllocator(struct ArenaAllocator *allocator) {
 
 static void setColor(int color) {
   if (g_isOutputTTY) {
-    printf("\033[3%dm", color);
+    printf("\x1b[3%dm", color);
   }
 }
 
