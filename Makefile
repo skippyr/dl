@@ -1,6 +1,7 @@
 CC:=cc
 CFLAGS:=-std=c99 -Wpedantic -Wall -Wextra -O3
 BIN_PATH:=~/.local/share/bin
+SHELL:=bash
 
 .PHONY: all clean install uninstall
 
