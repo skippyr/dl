@@ -1,13 +1,13 @@
 #include "dl.h"
 
-static struct ArenaAllocator *g_userCredentialsAllocator;
-static struct ArenaAllocator *g_groupCredentialsAllocator;
-static struct ArenaAllocator *g_credentialsDataAllocator;
-static struct ArenaAllocator *g_entriesAllocator;
-static struct ArenaAllocator *g_entriesDataAllocator;
-static struct ArenaAllocator *g_temporaryAllocator;
-static int g_exitCode = 0;
-static int g_isOutputTTY;
+static struct ArenaAllocator *userCredentialsAllocator_g;
+static struct ArenaAllocator *groupCredentialsAllocator_g;
+static struct ArenaAllocator *credentialsDataAllocator_g;
+static struct ArenaAllocator *entriesAllocator_g;
+static struct ArenaAllocator *entriesDataAllocator_g;
+static struct ArenaAllocator *temporaryAllocator_g;
+static int exitCode_g = 0;
+static int isOutputTTY_g;
 
 static struct ArenaAllocator *allocateArenaAllocator(char *name, size_t size) {
   struct ArenaAllocator *allocator =
@@ -63,7 +63,7 @@ static void deallocateArenaMemory(struct ArenaAllocator *allocator,
 
 static struct Credential *findCredentialByID(int isUser, uid_t id) {
   struct ArenaAllocator *credentialsAllocator =
-      isUser ? g_userCredentialsAllocator : g_groupCredentialsAllocator;
+      isUser ? userCredentialsAllocator_g : groupCredentialsAllocator_g;
   size_t totalCredentials = *(size_t *)credentialsAllocator->buffer;
   struct Credential *credentials =
       (struct Credential *)(credentialsAllocator->buffer + sizeof(size_t));
@@ -77,7 +77,7 @@ static struct Credential *findCredentialByID(int isUser, uid_t id) {
   credentials[totalCredentials].id = id;
   credentials[totalCredentials].nameLength = strlen(name);
   credentials[totalCredentials].name = allocateArenaMemory(
-      g_credentialsDataAllocator, credentials[totalCredentials].nameLength + 1);
+      credentialsDataAllocator_g, credentials[totalCredentials].nameLength + 1);
   memcpy(credentials[totalCredentials].name, name,
          credentials[totalCredentials].nameLength + 1);
   ++*(size_t *)credentialsAllocator->buffer;
@@ -87,7 +87,7 @@ static struct Credential *findCredentialByID(int isUser, uid_t id) {
 static char *formatEntrySize(size_t *bufferLength, struct stat *status) {
   if (S_ISDIR(status->st_mode)) {
     *bufferLength = 1;
-    char *buffer = allocateArenaMemory(g_entriesDataAllocator, 2);
+    char *buffer = allocateArenaMemory(entriesDataAllocator_g, 2);
     *buffer = '-';
     buffer[1] = 0;
     return buffer;
@@ -105,7 +105,7 @@ static char *formatEntrySize(size_t *bufferLength, struct stat *status) {
   sprintf(format, "%ldB", status->st_size);
 exit:
   *bufferLength = strlen(format);
-  char *buffer = allocateArenaMemory(g_entriesDataAllocator, *bufferLength + 1);
+  char *buffer = allocateArenaMemory(entriesDataAllocator_g, *bufferLength + 1);
   memcpy(buffer, format, *bufferLength + 1);
   return buffer;
 }
@@ -145,27 +145,27 @@ static void readDirectory(char *directoryPath) {
     size_t nameLength = strlen(entryRegister->d_name);
     size_t entryPathLength = directoryPathLength + nameLength + 1;
     char *entryPath =
-        allocateArenaMemory(g_temporaryAllocator, entryPathLength + 1);
+        allocateArenaMemory(temporaryAllocator_g, entryPathLength + 1);
     sprintf(entryPath, "%s/%s", directoryPath, entryRegister->d_name);
     struct stat status;
     lstat(entryPath, &status);
     struct Entry *entry =
-        allocateArenaMemory(g_entriesAllocator, sizeof(struct Entry));
+        allocateArenaMemory(entriesAllocator_g, sizeof(struct Entry));
     if (S_ISLNK(status.st_mode)) {
       char link[AVERAGE_PATH_LENGTH + 1];
       link[readlink(entryPath, link, sizeof(link))] = 0;
       size_t linkLength = strlen(link);
-      entry->link = allocateArenaMemory(g_entriesDataAllocator, linkLength + 1);
+      entry->link = allocateArenaMemory(entriesDataAllocator_g, linkLength + 1);
       memcpy(entry->link, link, linkLength + 1);
     } else {
       entry->link = NULL;
     }
-    deallocateArenaMemory(g_temporaryAllocator, entryPathLength + 1);
+    deallocateArenaMemory(temporaryAllocator_g, entryPathLength + 1);
     entry->user = findCredentialByID(1, status.st_uid);
     entry->group = findCredentialByID(0, status.st_gid);
     entry->modifiedEpoch = status.st_mtim.tv_sec;
     entry->mode = status.st_mode;
-    entry->name = allocateArenaMemory(g_entriesDataAllocator, nameLength + 1);
+    entry->name = allocateArenaMemory(entriesDataAllocator_g, nameLength + 1);
     memcpy(entry->name, entryRegister->d_name, nameLength + 1);
     size_t sizeLength;
     entry->size = formatEntrySize(&sizeLength, &status);
@@ -175,7 +175,7 @@ static void readDirectory(char *directoryPath) {
     SAVE_GREATER(sizeColumnLength, (int)sizeLength);
   }
   closedir(stream);
-  qsort(g_entriesAllocator->buffer, totalEntries, sizeof(struct Entry),
+  qsort(entriesAllocator_g->buffer, totalEntries, sizeof(struct Entry),
         sortEntriesAlphabetically);
   int totalDigitsInMaximumIndex = countDigits(totalEntries);
   SAVE_GREATER(indexColumnLength, totalDigitsInMaximumIndex);
@@ -191,7 +191,7 @@ static void readDirectory(char *directoryPath) {
            "DIRECTORY IS EMPTY");
   }
   for (size_t index = 0; index < totalEntries; ++index) {
-    struct Entry entry = *((struct Entry *)g_entriesAllocator->buffer + index);
+    struct Entry entry = *((struct Entry *)entriesAllocator_g->buffer + index);
     struct tm *modifiedTime = localtime(&entry.modifiedEpoch);
     char date[12];
     strftime(date, sizeof(date), "%b %d %Y", modifiedTime);
@@ -251,8 +251,8 @@ static void readDirectory(char *directoryPath) {
     }
     putchar('\n');
   }
-  resetArenaAllocator(g_entriesAllocator);
-  resetArenaAllocator(g_entriesDataAllocator);
+  resetArenaAllocator(entriesAllocator_g);
+  resetArenaAllocator(entriesDataAllocator_g);
   writeLine(1, 52 + indexColumnLength + userColumnLength + groupColumnLength +
                    sizeColumnLength);
   setColor(Color_Red);
@@ -261,10 +261,10 @@ static void readDirectory(char *directoryPath) {
   printf("Path: ");
   setColor(Color_Green);
   char *fullPath =
-      realpath(directoryPath, allocateArenaMemory(g_temporaryAllocator,
+      realpath(directoryPath, allocateArenaMemory(temporaryAllocator_g,
                                                   AVERAGE_PATH_LENGTH + 1));
   printf("%s", fullPath);
-  resetArenaAllocator(g_temporaryAllocator);
+  resetArenaAllocator(temporaryAllocator_g);
   setColor(Color_Default);
   printf(".\n");
   setColor(Color_Red);
@@ -282,7 +282,7 @@ static void resetArenaAllocator(struct ArenaAllocator *allocator) {
 }
 
 static void setColor(int color) {
-  if (g_isOutputTTY) {
+  if (isOutputTTY_g) {
     printf("\x1b[3%dm", color);
   }
 }
@@ -308,7 +308,7 @@ static void writeError(char *format, ...) {
   vfprintf(stderr, format, arguments);
   va_end(arguments);
   fputc('\n', stderr);
-  g_exitCode = 1;
+  exitCode_g = 1;
 }
 
 static void writeLine(size_t totalLines, ...) {
@@ -330,23 +330,23 @@ static void writeLine(size_t totalLines, ...) {
 }
 
 int main(int totalArguments, char **arguments) {
-  g_userCredentialsAllocator = allocateArenaAllocator(
-      "g_userCredentialsAllocator",
+  userCredentialsAllocator_g = allocateArenaAllocator(
+      "userCredentialsAllocator_g",
       sizeof(struct Credential) * MAXIMUM_CREDENTIALS_EXPECTED +
           sizeof(size_t));
-  g_groupCredentialsAllocator = allocateArenaAllocator(
-      "g_groupCredentialAllocator", g_userCredentialsAllocator->size);
-  g_credentialsDataAllocator = allocateArenaAllocator(
-      "g_credentialsDataAllocator",
+  groupCredentialsAllocator_g = allocateArenaAllocator(
+      "groupCredentialAllocator_g", userCredentialsAllocator_g->size);
+  credentialsDataAllocator_g = allocateArenaAllocator(
+      "credentialsDataAllocator_g",
       (AVERAGE_CREDENTIAL_NAME_LENGTH + 1) * MAXIMUM_CREDENTIALS_EXPECTED);
-  g_entriesAllocator = allocateArenaAllocator(
-      "g_entriesAllocator", sizeof(struct Entry) * MAXIMUM_ENTRIES_EXPECTED);
-  g_entriesDataAllocator = allocateArenaAllocator(
-      "g_entriesDataAllocator",
+  entriesAllocator_g = allocateArenaAllocator(
+      "entriesAllocator_g", sizeof(struct Entry) * MAXIMUM_ENTRIES_EXPECTED);
+  entriesDataAllocator_g = allocateArenaAllocator(
+      "entriesDataAllocator_g",
       (AVERAGE_ENTRY_NAME_LENGTH * 2 + 9) * MAXIMUM_ENTRIES_EXPECTED);
-  g_temporaryAllocator =
-      allocateArenaAllocator("g_temporaryAllocator", AVERAGE_PATH_LENGTH + 1);
-  g_isOutputTTY = isatty(STDOUT_FILENO);
+  temporaryAllocator_g =
+      allocateArenaAllocator("temporaryAllocator_g", AVERAGE_PATH_LENGTH + 1);
+  isOutputTTY_g = isatty(STDOUT_FILENO);
   if (totalArguments == 1) {
     readDirectory(".");
     goto exit;
@@ -359,11 +359,11 @@ int main(int totalArguments, char **arguments) {
     readDirectory(arguments[index]);
   }
 exit:
-  deallocateArenaAllocator(g_userCredentialsAllocator);
-  deallocateArenaAllocator(g_groupCredentialsAllocator);
-  deallocateArenaAllocator(g_credentialsDataAllocator);
-  deallocateArenaAllocator(g_entriesAllocator);
-  deallocateArenaAllocator(g_entriesDataAllocator);
-  deallocateArenaAllocator(g_temporaryAllocator);
-  return g_exitCode;
+  deallocateArenaAllocator(userCredentialsAllocator_g);
+  deallocateArenaAllocator(groupCredentialsAllocator_g);
+  deallocateArenaAllocator(credentialsDataAllocator_g);
+  deallocateArenaAllocator(entriesAllocator_g);
+  deallocateArenaAllocator(entriesDataAllocator_g);
+  deallocateArenaAllocator(temporaryAllocator_g);
+  return exitCode_g;
 }

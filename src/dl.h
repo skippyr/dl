@@ -16,17 +16,17 @@
 #define AVERAGE_PATH_LENGTH 260
 #define MAXIMUM_CREDENTIALS_EXPECTED 20
 #define MAXIMUM_ENTRIES_EXPECTED 30000
-#define PARSE_FILE_PERMISSION(a_permission, a_character, a_color) \
-  setColor(entry.mode &a_permission ? a_color : Color_Default); \
-  putchar(entry.mode &a_permission ? a_character : '-');
-#define PARSE_OPTION(a_option, a_action) \
-  if (!strcmp(arguments[index], "--" a_option)) { \
-    a_action; \
+#define PARSE_FILE_PERMISSION(permission_a, character_a, color_a) \
+  setColor(entry.mode &permission_a ? color_a : Color_Default); \
+  putchar(entry.mode &permission_a ? character_a : '-');
+#define PARSE_OPTION(option_a, action_a) \
+  if (!strcmp(arguments[index], "--" option_a)) { \
+    action_a; \
     return 0; \
   }
-#define SAVE_GREATER(a_buffer, a_value) \
-  if (a_buffer < a_value) { \
-    a_buffer = a_value; \
+#define SAVE_GREATER(buffer_a, value_a) \
+  if (buffer_a < value_a) { \
+    buffer_a = value_a; \
   }
 #define VERSION "v1.0.0"
 
