@@ -152,7 +152,7 @@ static void readDirectory(char *directoryPath) {
     struct Entry *entry =
         allocateArenaMemory(entriesAllocator_g, sizeof(struct Entry));
     if (S_ISLNK(status.st_mode)) {
-      char link[AVERAGE_PATH_LENGTH + 1];
+      char link[MAXIMUM_PATH_LENGTH + 1];
       link[readlink(entryPath, link, sizeof(link))] = 0;
       size_t linkLength = strlen(link);
       entry->link = allocateArenaMemory(entriesDataAllocator_g, linkLength + 1);
@@ -262,7 +262,7 @@ static void readDirectory(char *directoryPath) {
   setColor(Color_Green);
   char *fullPath =
       realpath(directoryPath, allocateArenaMemory(temporaryAllocator_g,
-                                                  AVERAGE_PATH_LENGTH + 1));
+                                                  MAXIMUM_PATH_LENGTH + 1));
   printf("%s", fullPath);
   resetArenaAllocator(temporaryAllocator_g);
   setColor(Color_Default);
@@ -345,7 +345,7 @@ int main(int totalArguments, char **arguments) {
       "entriesDataAllocator_g",
       (AVERAGE_ENTRY_NAME_LENGTH * 2 + 9) * MAXIMUM_ENTRIES_EXPECTED);
   temporaryAllocator_g =
-      allocateArenaAllocator("temporaryAllocator_g", AVERAGE_PATH_LENGTH + 1);
+      allocateArenaAllocator("temporaryAllocator_g", MAXIMUM_PATH_LENGTH + 1);
   isOutputTTY_g = isatty(STDOUT_FILENO);
   if (totalArguments == 1) {
     readDirectory(".");
