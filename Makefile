@@ -5,18 +5,18 @@ SHELL:=bash
 
 .PHONY: all clean install uninstall
 
-all: bin/dl
+all: build/bin/dl
 
 clean:
-	rm -rf bin;
+	rm -rf build;
 
-install: bin/dl
+install: build/bin/dl
 	mkdir -p ${BIN_PATH};
-	cp bin/dl ${BIN_PATH};
+	cp ${<} ${BIN_PATH};
 
 uninstall:
 	rm -rf ${BIN_PATH}/dl;
 
-bin/dl: src/dl.c src/dl.h
-	mkdir -p bin;
+build/bin/dl: src/dl.c src/dl.h
+	mkdir -p build/bin;
 	${CC} ${CFLAGS} -o${@} ${<};
