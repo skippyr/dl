@@ -1,40 +1,49 @@
 <p align="center">
-  <img alt="" src="assets/ornament.webp" />
+	<img alt="" src="assets/ornament.webp" />
 </p>
 <h1 align="center">≥v≥v&ensp;dl&ensp;≥v≥v</h1>
 <p align="center">Directory Lister</p>
 <p align="center">
-  <img alt="" src="https://img.shields.io/github/license/skippyr/dl?style=plastic&label=%E2%89%A5%20license&labelColor=%2324130e&color=%23b8150d" />
-  &nbsp;
-  <img alt="" src="https://img.shields.io/github/v/tag/skippyr/dl?style=plastic&label=%E2%89%A5%20tag&labelColor=%2324130e&color=%23b8150d" />
-  &nbsp;
-  <img alt="" src="https://img.shields.io/github/commit-activity/t/skippyr/dl?style=plastic&label=%E2%89%A5%20commits&labelColor=%2324130e&color=%23b8150d" />
-  &nbsp;
-  <img alt="" src="https://img.shields.io/github/stars/skippyr/dl?style=plastic&label=%E2%89%A5%20stars&labelColor=%2324130e&color=%23b8150d" />
+	<img alt="" src="https://img.shields.io/github/license/skippyr/dl?style=plastic&label=%E2%89%A5%20license&labelColor=%2324130e&color=%23b8150d" />
+	&nbsp;
+	<img alt="" src="https://img.shields.io/github/v/tag/skippyr/dl?style=plastic&label=%E2%89%A5%20tag&labelColor=%2324130e&color=%23b8150d" />
+	&nbsp;
+	<img alt="" src="https://img.shields.io/github/commit-activity/t/skippyr/dl?style=plastic&label=%E2%89%A5%20commits&labelColor=%2324130e&color=%23b8150d" />
+	&nbsp;
+	<img alt="" src="https://img.shields.io/github/stars/skippyr/dl?style=plastic&label=%E2%89%A5%20stars&labelColor=%2324130e&color=%23b8150d" />
 </p>
 
 ## ❡ About
 
-A tribal inspired directory listing utility for Linux.
+A simple directory listing utility for Windows and Linux.
 
 <p align="center">
-  <img alt="" src="assets/preview.webp" />
+	<img alt="" src="assets/preview-windows.webp" />
+	<img alt="" src="assets/preview-linux.webp" />
 </p>
-<p align="center"><sup><strong>Caption:</strong> a preview of <code>dl</code> listing a directory. The terminal theme used is <a href="https://github.com/skippyr/flamerial">Flamerial</a>, shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a> and font is <a href="https://fonts.google.com/specimen/Fira+Code">Fira Code</a>.</sup></p>
+<p align="center"><sup><strong>Caption:</strong> two previews of <code>dl</code> listing a directory on Windows and Linux, respectively. The terminal theme used is <a href="https://github.com/skippyr/flamerial">Flamerial</a>, the Linux shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a> and font is <a href="https://fonts.google.com/specimen/Fira+Mono">Fira Mono</a>.</sup></p>
 
 ### Features
 
 For each entry in a directory, it displays:
 
-- Its index on the listing.
-- Its user and group names.
-- Its last modified date.
-- Its size in a convenient human readable: terabyte (TB), gigabyte (GB), megabyte (MB), kilobyte (kB) or byte (B).
-- The file type regular (-), directory (d), symlink (l), block device (b), character device (c), fifo (f) or socket (s).
-- Its read (r), write (w), execute (x) and lack (-) permissions for user, group and others, respectively.
-- Its permissions in octal base.
-- An icon representing its type.
-- Its name. And if it is a symlink, it also contains the path that it points to.
+- On Windows:
+	- Its index on the listing.
+	- Its domain and user names.
+	- Its last modified date.
+	- Its size in a convenient human readable: terabyte (TB), gigabyte (GB), megabyte (MB), kilobyte (kB) or byte (B).
+	- Its hidden (h), archive (a), read-only (r), temporary (t), recurse-point (l) and lack (-) attributes.
+	- An icon representing its type.
+	- Its name.
+- On Linux:
+	- Its index on the listing.
+	- Its group and user names.
+	- Its last modified date.
+	- Its size in a convenient human readable: terabyte (TB), gigabyte (GB), megabyte (MB), kilobyte (kB) or byte (B).
+	- Its read (r), write (w), execute (x) and lack (-) permissions for user, group and others, respectively.
+	- Its permissions in octal base.
+	- An icon representing its type.
+	- Its name. And if it is a symlink, it also contains the path that it points to.
 
 ## ❡ Install
 
@@ -42,18 +51,26 @@ For each entry in a directory, it displays:
 
 The following dependencies must be installed before installing it:
 
+#### Dependencies For Windows
+
+- [**Visual Studio 2022**](https://visualstudio.microsoft.com): it provides all the tools required to build this software.
+- [**git**](https://git-scm.com): it will be used to clone this repository.
+- [**Nerd Font Symbols**](https://www.nerdfonts.com/font-downloads): this font provides the pretty symbols used in the software.
+
+#### Dependencies For Linux
+
+- **gcc**, **cmake**, **ninja**: they will be used to build this software.
 - **git**: it will be used to clone this repository.
-- **gcc**, **make**: they will be used to compile this software.
-- [**Nerd Font Symbols**](https://www.nerdfonts.com/font-downloads), **Noto Sans**: these fonts provide the pretty symbols used in the software.
+- [**Nerd Font Symbols**](https://www.nerdfonts.com/font-downloads), **Noto Sans** and **Noto Sans Emoji**: these fonts provide the pretty symbols used in the software.
 
 ### Procedures
 
-Using a terminal, follow these steps:
+On Windows, using `Developer PowerShell For VS 2022`, or, on Linux, using any terminal, follow these steps:
 
 - Clone this repository using `git`:
 
 ```sh
-git clone --depth 1 https://github.com/skippyr/dl;
+git clone --recurse-submodules --depth 1 https://github.com/skippyr/dl;
 ```
 
 - Access the repository directory using `cd`:
@@ -62,18 +79,15 @@ git clone --depth 1 https://github.com/skippyr/dl;
 cd dl;
 ```
 
-- Use `make` to build and install it:
+- Use `cmake` to build and install it:
 
 ```sh
-make install clean;
+cmake -B build/cmake -G Ninja;
+cmake --build build/cmake;
+cmake --install build/cmake;
 ```
 
-- Add the install directory, `~/.local/share/bin`, to your `PATH` system environment variable by adding the following line to your shell startup file:
-
-```sh
-export PATH=${PATH}:~/.local/share/bin;
-```
-
+- Add the install directory, `build/bin`, to your `PATH` system environment variable.
 - Reopen your shell.
 
 ## ❡ Documentation

@@ -1,369 +1,800 @@
 #include "dl.h"
 
-static struct ArenaAllocator *userCredentialsAllocator_g;
-static struct ArenaAllocator *groupCredentialsAllocator_g;
-static struct ArenaAllocator *credentialsDataAllocator_g;
-static struct ArenaAllocator *entriesAllocator_g;
-static struct ArenaAllocator *entriesDataAllocator_g;
-static struct ArenaAllocator *temporaryAllocator_g;
-static int exitCode_g = 0;
-static int isOutputTTY_g;
+static int g_exitCode = 0;
+static struct ArenaAllocator* g_entriesAllocator;
+static struct ArenaAllocator* g_entriesDataAllocator;
+static struct ArenaAllocator* g_temporaryCharAllocator;
+#ifdef _WIN32
+static PSECURITY_DESCRIPTOR g_securityDescriptorBuffer;
+static struct ArenaAllocator* g_credentialsAllocator;
+static struct ArenaAllocator* g_credentialsDataAllocator;
+static struct ArenaAllocator* g_temporaryWCharAllocator;
+#else
+static struct ArenaAllocator* g_userCredentialsAllocator;
+static struct ArenaAllocator* g_userCredentialsDataAllocator;
+static struct ArenaAllocator* g_groupCredentialsAllocator;
+static struct ArenaAllocator* g_groupCredentialsDataAllocator;
+#endif
 
-static struct ArenaAllocator *allocateArenaAllocator(char *name, size_t size) {
-  struct ArenaAllocator *allocator =
-      allocateHeapMemory(sizeof(struct ArenaAllocator));
-  size_t nameLength = strlen(name);
-  allocator->name = allocateHeapMemory(nameLength + 1);
-  memcpy(allocator->name, name, nameLength + 1);
-  *(size_t *)(allocator->buffer = allocateHeapMemory(size)) = 0;
-  allocator->cursor = allocator->buffer;
-  allocator->size = size;
-  return allocator;
+static struct ArenaAllocator* allocateArenaAllocator(const char* name, size_t typeSize, size_t capacity)
+{
+	struct ArenaAllocator* allocator = allocateHeapMemory(__LINE__, sizeof(struct ArenaAllocator));
+	allocator->buffer = allocateHeapMemory(__LINE__, typeSize * capacity);
+	allocator->typeSize = typeSize;
+	allocator->use = 0;
+	allocator->capacity = capacity;
+	size_t nameSize = strlen(name) + 1;
+	allocator->name = allocateHeapMemory(__LINE__, nameSize);
+	memcpy(allocator->name, name, nameSize);
+	return allocator;
 }
 
-static void *allocateArenaMemory(struct ArenaAllocator *allocator,
-                                 size_t size) {
-  if (allocator->cursor + size > allocator->buffer + allocator->size) {
-    throwError("can not allocate %zuB of memory on arena allocator \"%s\".",
-               size, allocator->name);
-    return NULL;
-  }
-  void *allocation = allocator->cursor;
-  allocator->cursor += size;
-  return allocation;
+static void* allocateArenaMemory(size_t line, struct ArenaAllocator* allocator, size_t use)
+{
+	if (allocator->use + use > allocator->capacity)
+	{
+		throwLog(line, LogType_Error, "can not allocate %zu %s (%zuB) on arena \"%s\" (%zu %s [%zuB]/%zu %s [%zuB]).",
+				 use, use == 1 ? "item" : "items", allocator->typeSize * use, allocator->name, allocator->use,
+				 allocator->use == 1 ? "item" : "items", allocator->typeSize * allocator->use, allocator->capacity,
+				 allocator->capacity == 1 ? "item" : "items", allocator->typeSize * allocator->capacity);
+		return NULL;
+	}
+	void* allocation = allocator->buffer + allocator->typeSize * allocator->use;
+	allocator->use += use;
+	return allocation;
 }
 
-static void *allocateHeapMemory(size_t size) {
-  void *allocation = malloc(size);
-  if (allocation) {
-    return allocation;
-  }
-  throwError("can not allocate %zuB of memory on the heap.", size);
-  return NULL;
+static void* allocateHeapMemory(size_t line, size_t size)
+{
+	void* allocation = malloc(size);
+	if (allocation)
+	{
+		return allocation;
+	}
+	throwLog(line, LogType_Error, "can not allocate %zuB of memory on the heap.", size);
+	return NULL;
 }
 
-static int countDigits(size_t number) {
-  int totalDigits;
-  for (totalDigits = !number; number; number /= 10) {
-    ++totalDigits;
-  }
-  return totalDigits;
+static int countDigits(size_t number)
+{
+	int totalDigits;
+	for (totalDigits = !number; number; number /= 10)
+	{
+		++totalDigits;
+	}
+	return totalDigits;
 }
 
-static void deallocateArenaAllocator(struct ArenaAllocator *allocator) {
-  free(allocator->name);
-  free(allocator->buffer);
-  free(allocator);
+static void deallocateArenaAllocator(struct ArenaAllocator* allocator)
+{
+	free(allocator->name);
+	free(allocator->buffer);
+	free(allocator);
 }
 
-static void deallocateArenaMemory(struct ArenaAllocator *allocator,
-                                  size_t size) {
-  allocator->cursor -= size;
+static void deallocateArenaMemory(size_t line, struct ArenaAllocator* allocator, size_t use)
+{
+	if (use > allocator->use)
+	{
+		throwLog(line, LogType_Error,
+				 "can not deallocate %zu %s (%zuB) from arena \"%s\" (%zu %s [%zuB]/%zu %s [%zuB]).", use,
+				 use == 1 ? "item" : "items", allocator->typeSize * use, allocator->name, allocator->use,
+				 allocator->use == 1 ? "item" : "items", allocator->typeSize * allocator->use, allocator->capacity,
+				 allocator->capacity ? "item" : "items", allocator->typeSize * allocator->capacity);
+	}
+	allocator->use -= use;
 }
 
-static struct Credential *findCredentialByID(int isUser, uid_t id) {
-  struct ArenaAllocator *credentialsAllocator =
-      isUser ? userCredentialsAllocator_g : groupCredentialsAllocator_g;
-  size_t totalCredentials = *(size_t *)credentialsAllocator->buffer;
-  struct Credential *credentials =
-      (struct Credential *)(credentialsAllocator->buffer + sizeof(size_t));
-  for (size_t index = 0; index < totalCredentials; ++index) {
-    if (credentials[index].id == id) {
-      return credentials + index;
-    }
-  }
-  char *name = isUser ? getpwuid(id)->pw_name : getgrgid(id)->gr_name;
-  allocateArenaMemory(credentialsAllocator, sizeof(struct Credential));
-  credentials[totalCredentials].id = id;
-  credentials[totalCredentials].nameLength = strlen(name);
-  credentials[totalCredentials].name = allocateArenaMemory(
-      credentialsDataAllocator_g, credentials[totalCredentials].nameLength + 1);
-  memcpy(credentials[totalCredentials].name, name,
-         credentials[totalCredentials].nameLength + 1);
-  ++*(size_t *)credentialsAllocator->buffer;
-  return credentials + totalCredentials;
+static char* formatEntrySize(size_t* bufferLength, unsigned long long entrySize, int isDirectory)
+{
+	if (isDirectory)
+	{
+		*bufferLength = 0;
+		return NULL;
+	}
+	char formatBuffer[9];
+	struct SIMultiplier multipliers[] = {{1099511627776, 'T'}, {1073741824, 'G'}, {1048576, 'M'}, {1024, 'k'}};
+	for (size_t index = 0; index < 4; ++index)
+	{
+		if (entrySize >= multipliers[index].value)
+		{
+			float formatedSize = entrySize / multipliers[index].value;
+			sprintf(formatBuffer, "%.1f%cB", formatedSize, multipliers[index].prefix);
+			goto end;
+		}
+	}
+	sprintf(formatBuffer, "%lldB", entrySize);
+end:
+	*bufferLength = strlen(formatBuffer);
+	char* buffer = allocateArenaMemory(__LINE__, g_entriesDataAllocator, *bufferLength + 1);
+	memcpy(buffer, formatBuffer, *bufferLength + 1);
+	return buffer;
 }
 
-static char *formatEntrySize(size_t *bufferLength, struct stat *status) {
-  if (S_ISDIR(status->st_mode)) {
-    *bufferLength = 1;
-    char *buffer = allocateArenaMemory(entriesDataAllocator_g, 2);
-    *buffer = '-';
-    buffer[1] = 0;
-    return buffer;
-  }
-  struct SIMultiplier multipliers[] = {
-      {1099511627776, 'T'}, {1073741824, 'G'}, {1048576, 'M'}, {1024, 'k'}};
-  char format[9];
-  for (size_t index = 0; index < 4; ++index) {
-    if (status->st_size >= multipliers[index].value) {
-      float size = status->st_size / multipliers[index].value;
-      sprintf(format, "%.1f%cB", size, multipliers[index].prefix);
-      goto exit;
-    }
-  }
-  sprintf(format, "%ldB", status->st_size);
+static char* formatEntryModifiedDate(int month, int day, int year, size_t* bufferSize)
+{
+	char formatBuffer[12];
+	sprintf(formatBuffer, "%s/%02d/%04d",
+			!month        ? "Jan"
+			: month == 1  ? "Feb"
+			: month == 2  ? "Mar"
+			: month == 3  ? "Apr"
+			: month == 4  ? "May"
+			: month == 5  ? "Jun"
+			: month == 6  ? "Jul"
+			: month == 7  ? "Aug"
+			: month == 8  ? "Sep"
+			: month == 9  ? "Oct"
+			: month == 10 ? "Nov"
+						  : "Dec",
+			day, year);
+	*bufferSize = strlen(formatBuffer) + 1;
+	char* buffer = allocateArenaMemory(__LINE__, g_temporaryCharAllocator, *bufferSize);
+	memcpy(buffer, formatBuffer, *bufferSize);
+	return buffer;
+}
+
+static void resetArenaAllocator(struct ArenaAllocator* allocator)
+{
+	allocator->use = 0;
+}
+
+static void throwLog(size_t line, int type, const char* format, ...)
+{
+	tdk_set256Color(type == LogType_Warning ? tdk_Color_Yellow : tdk_Color_Red, tdk_Layer_Foreground);
+	tdk_writeError("[%s] ", type == LogType_Warning ? "WARNING" : "ERROR");
+	tdk_set256Color(tdk_Color_LightBlack, tdk_Layer_Foreground);
+	tdk_write("(line %zu) ", line);
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeError("%s: ", PROGRAM_NAME, line);
+	tdk_setWeight(tdk_Weight_Default);
+	fflush(stdout);
+	va_list arguments;
+	va_start(arguments, format);
+	vfprintf(stderr, format, arguments);
+	va_end(arguments);
+	tdk_writeErrorLine("");
+	if (type == LogType_Warning)
+	{
+		g_exitCode = 1;
+	}
+	else
+	{
+		tdk_writeErrorLine("Program exited with exit code 1.");
+		exit(1);
+	}
+}
+
+static void writeHelp(void)
+{
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeLine("SYNOPSIS");
+	tdk_setWeight(tdk_Weight_Default);
+	tdk_writeLine("--------");
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_write("    dl ");
+	tdk_setWeight(tdk_Weight_Default);
+	tdk_set256Color(tdk_Color_LightBlack, tdk_Layer_Foreground);
+	tdk_write("[OPTIONS]");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_write("... ");
+	tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+	tdk_write("[PATH]");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine("...");
+	tdk_write("    Write information about the entries inside of directories given their ");
+	tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+	tdk_write("PATH");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine("(s).");
+	tdk_writeLine("    If no path is provided, the current directory is considered.");
+	tdk_writeLine("");
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeLine("OPTIONS");
+	tdk_setWeight(tdk_Weight_Default);
+	tdk_writeLine("-------");
+	tdk_set256Color(tdk_Color_Green, tdk_Layer_Foreground);
+	tdk_write("    --help");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine(": write these help instructions.");
+	tdk_set256Color(tdk_Color_Green, tdk_Layer_Foreground);
+	tdk_write("    --license");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine(": write its license and copyright notice.");
+	tdk_set256Color(tdk_Color_Green, tdk_Layer_Foreground);
+	tdk_write("    --version");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine(": write its version, platform and archictecture.");
+	tdk_writeLine("");
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeLine("SOURCE CODE");
+	tdk_setWeight(tdk_Weight_Default);
+	tdk_writeLine("-----------");
+	tdk_write("Its source code is available at: <");
+	tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+	tdk_setEffect(tdk_Effect_Underline, 1);
+	tdk_write("https://github.com/skippyr/dl");
+	tdk_setEffect(tdk_Effect_Underline, 0);
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine(">.");
+}
+
+static void writeLicense(void)
+{
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeLine("BSD 3-Clause License");
+	tdk_setWeight(tdk_Weight_Default);
+	tdk_write("Copyright (c) 2024, Sherman Rofeman <");
+	tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+	tdk_setEffect(tdk_Effect_Underline, 1);
+	tdk_write("skippyr.developer@gmail.com");
+	tdk_setEffect(tdk_Effect_Underline, 0);
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_writeLine(">.");
+	tdk_writeLine("");
+	tdk_writeLine("This is free software licensed under the BSD-3-Clause License that comes WITH NO WARRANTY. Refer to "
+				  "the LICENSE file");
+	tdk_writeLine("that comes in its source code for license and copyright details.");
+}
+
+static void writeLines(size_t totalLines, ...)
+{
+	va_list arguments;
+	va_start(arguments, totalLines);
+	for (size_t index = 0; index < totalLines; ++index)
+	{
+		for (int length = va_arg(arguments, int); length; --length)
+		{
+			tdk_write("-");
+		}
+		if (index < totalLines - 1)
+		{
+			tdk_write(" ");
+		}
+	}
+	va_end(arguments);
+	tdk_writeLine("");
+}
+
+static void writeVersion(void)
+{
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_write("%s ", PROGRAM_NAME);
+	tdk_setWeight(tdk_Weight_Default);
+	tdk_writeLine("%s (compiled for %s %s).", PROGRAM_VERSION, PROGRAM_PLATFORM, PROGRAM_ARCHITECTURE);
+}
+
+#ifdef DEBUG
+static void dumpArenaAllocator(struct ArenaAllocator* allocator)
+{
+	tdk_writeLine("%s %zu %s (%zuB)/%zu %s (%zuB)", allocator->name, allocator->use,
+				  allocator->use == 1 ? "item" : "items", allocator->typeSize * allocator->use, allocator->capacity,
+				  allocator->capacity == 1 ? "item" : "items", allocator->typeSize * allocator->capacity);
+}
+#endif
+
+#ifdef _WIN32
+static char* convertUTF16ToUTF8(size_t line, struct ArenaAllocator* allocator, const wchar_t* utf16String,
+								size_t* utf8StringLength)
+{
+	size_t utf8StringSize = WideCharToMultiByte(CP_UTF8, 0, utf16String, -1, NULL, 0, NULL, NULL);
+	char* utf8String = allocateArenaMemory(line, allocator, utf8StringSize);
+	WideCharToMultiByte(CP_UTF8, 0, utf16String, -1, utf8String, utf8StringSize, NULL, NULL);
+	if (utf8StringLength)
+	{
+		*utf8StringLength = utf8StringSize - 1;
+	}
+	return utf8String;
+}
+
+static struct Credential* findCredential(const wchar_t* utf16DirectoryPath, size_t globSize,
+										 PWIN32_FIND_DATAW entryData)
+{
+	size_t entryPathSize = wcslen(entryData->cFileName) + globSize - 1;
+	wchar_t* entryPath = allocateArenaMemory(__LINE__, g_temporaryWCharAllocator, entryPathSize);
+	memcpy(entryPath, utf16DirectoryPath, (globSize - 3) * sizeof(wchar_t));
+	entryPath[globSize - 3] = '\\';
+	memcpy(entryPath + globSize - 2, entryData->cFileName, (entryPathSize - globSize + 2) * sizeof(wchar_t));
+	DWORD securityDescriptorSize;
+	if (!GetFileSecurityW(entryPath, OWNER_SECURITY_INFORMATION, g_securityDescriptorBuffer,
+						  SECURITY_DESCRIPTOR_BUFFER_SIZE, &securityDescriptorSize))
+	{
+		deallocateArenaMemory(__LINE__, g_temporaryWCharAllocator, entryPathSize);
+		return NULL;
+	}
+	deallocateArenaMemory(__LINE__, g_temporaryWCharAllocator, entryPathSize);
+	PSID sid;
+	BOOL isOwnerDefaulted;
+	GetSecurityDescriptorOwner(g_securityDescriptorBuffer, &sid, &isOwnerDefaulted);
+	for (size_t index = 0; index < g_credentialsAllocator->use; ++index)
+	{
+		if (EqualSid(((struct Credential*)g_credentialsAllocator->buffer + index)->sid, sid))
+		{
+			return (struct Credential*)g_credentialsAllocator->buffer + index;
+		}
+	}
+	DWORD utf16UserSize = 0;
+	DWORD utf16DomainSize = 0;
+	SID_NAME_USE use;
+	LookupAccountSidW(NULL, sid, NULL, &utf16UserSize, NULL, &utf16DomainSize, &use);
+	wchar_t* utf16User = allocateArenaMemory(__LINE__, g_temporaryWCharAllocator, utf16UserSize);
+	wchar_t* utf16Domain = allocateArenaMemory(__LINE__, g_temporaryWCharAllocator, utf16DomainSize);
+	LookupAccountSidW(NULL, sid, utf16User, &utf16UserSize, utf16Domain, &utf16DomainSize, &use);
+	struct Credential* credential = allocateArenaMemory(__LINE__, g_credentialsAllocator, 1);
+	DWORD sidLength = GetLengthSid(sid);
+	credential->sid = allocateArenaMemory(__LINE__, g_credentialsDataAllocator, sidLength);
+	CopySid(sidLength, credential->sid, sid);
+	credential->user.buffer =
+		convertUTF16ToUTF8(__LINE__, g_credentialsDataAllocator, utf16User, &credential->user.length);
+	credential->domain.buffer =
+		convertUTF16ToUTF8(__LINE__, g_credentialsDataAllocator, utf16Domain, &credential->domain.length);
+	deallocateArenaMemory(__LINE__, g_temporaryWCharAllocator, utf16UserSize + utf16DomainSize + 2);
+	return credential;
+}
+
+static void readDirectory(const wchar_t* utf16DirectoryPath)
+{
+	size_t globSize = wcslen(utf16DirectoryPath) + 3;
+	wchar_t* glob = allocateArenaMemory(__LINE__, g_temporaryWCharAllocator, globSize);
+	memcpy(glob, utf16DirectoryPath, (globSize - 3) * sizeof(wchar_t));
+	glob[globSize - 3] = '\\';
+	glob[globSize - 2] = '*';
+	glob[globSize - 1] = 0;
+	WIN32_FIND_DATAW entryData;
+	HANDLE directory = FindFirstFileW(glob, &entryData);
+	deallocateArenaMemory(__LINE__, g_temporaryWCharAllocator, globSize);
+	if (directory == INVALID_HANDLE_VALUE)
+	{
+		size_t utf8DirectoryPathLength;
+		char* utf8DirectoryPath =
+			convertUTF16ToUTF8(__LINE__, g_temporaryCharAllocator, utf16DirectoryPath, &utf8DirectoryPathLength);
+		DWORD directoryAttributes = GetFileAttributesW(utf16DirectoryPath);
+		throwLog(__LINE__, LogType_Warning,
+				 directoryAttributes == INVALID_FILE_ATTRIBUTES   ? "can not find the entry \"%s\"."
+				 : directoryAttributes & FILE_ATTRIBUTE_DIRECTORY ? "can not open the directory \"%s\"."
+																  : "the entry \"%s\" is not a directory.",
+				 utf8DirectoryPath);
+		deallocateArenaMemory(__LINE__, g_temporaryCharAllocator, utf8DirectoryPathLength + 1);
+		return;
+	}
+	int indexColumnLength = 3;
+	int userColumnLength = 4;
+	int domainColumnLength = 6;
+	int sizeColumnLength = 4;
+	do
+	{
+		if (*entryData.cFileName == '.' &&
+			(!entryData.cFileName[1] || (entryData.cFileName[1] == '.' && !entryData.cFileName[2])))
+		{
+			continue;
+		}
+		struct Entry* entry = allocateArenaMemory(__LINE__, g_entriesAllocator, 1);
+		entry->credential = findCredential(utf16DirectoryPath, globSize, &entryData);
+		entry->mode = entryData.dwFileAttributes;
+		entry->modifiedTime = entryData.ftLastWriteTime;
+		entry->name = convertUTF16ToUTF8(__LINE__, g_entriesDataAllocator, entryData.cFileName, NULL);
+		size_t sizeLength;
+		entry->size =
+			formatEntrySize(&sizeLength, ((ULARGE_INTEGER){entryData.nFileSizeLow, entryData.nFileSizeHigh}).QuadPart,
+							entryData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+		if (entry->credential)
+		{
+			SAVE_GREATER(userColumnLength, entry->credential->user.length);
+			SAVE_GREATER(domainColumnLength, entry->credential->domain.length);
+		}
+		SAVE_GREATER(sizeColumnLength, sizeLength);
+	} while (FindNextFileW(directory, &entryData));
+	FindClose(directory);
+	int totalDigitsInMaximumIndex = countDigits(g_entriesAllocator->use);
+	SAVE_GREATER(indexColumnLength, totalDigitsInMaximumIndex);
+	tdk_set256Color(tdk_Color_Yellow, tdk_Layer_Foreground);
+	tdk_write(" ");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	tdk_setWeight(tdk_Weight_Bold);
+	if (((*utf16DirectoryPath > 'A' && *utf16DirectoryPath < 'Z') ||
+		 (*utf16DirectoryPath > 'a' && *utf16DirectoryPath < 'z')) &&
+		utf16DirectoryPath[1] == ':' && !utf16DirectoryPath[2])
+	{
+		tdk_writeLine("%c:\\:", *utf16DirectoryPath);
+	}
+	else
+	{
+		DWORD utf16DirectoryFullPathSize = GetFullPathNameW(utf16DirectoryPath, 0, NULL, NULL);
+		wchar_t* utf16DirectoryFullPath =
+			allocateArenaMemory(__LINE__, g_temporaryWCharAllocator, utf16DirectoryFullPathSize);
+		GetFullPathNameW(utf16DirectoryPath, utf16DirectoryFullPathSize, utf16DirectoryFullPath, NULL);
+		size_t utf8DirectoryFullPathLength;
+		char* utf8DirectoryFullPath = convertUTF16ToUTF8(__LINE__, g_temporaryCharAllocator, utf16DirectoryFullPath,
+														 &utf8DirectoryFullPathLength);
+		if (utf8DirectoryFullPathLength > 3 && utf8DirectoryFullPath[utf8DirectoryFullPathLength - 1] == '\\')
+		{
+			utf8DirectoryFullPath[utf8DirectoryFullPathLength - 1] = 0;
+		}
+		tdk_writeLine("%s%s:", utf8DirectoryFullPath, utf8DirectoryFullPathLength < 3 ? "\\" : "");
+		deallocateArenaMemory(__LINE__, g_temporaryCharAllocator, utf8DirectoryFullPathLength + 1);
+		deallocateArenaMemory(__LINE__, g_temporaryWCharAllocator, utf16DirectoryFullPathSize);
+	}
+	tdk_writeLine("%*s %-*s %-*s %-*s %*s %-*s Name", indexColumnLength, "No.", domainColumnLength, "Domain",
+				  userColumnLength, "User", 17, "Modified Date", sizeColumnLength, "Size", 5, "Mode");
+	tdk_setWeight(tdk_Weight_Default);
+	writeLines(7, indexColumnLength, domainColumnLength, userColumnLength, 17, sizeColumnLength, 5, 20);
+	if (!g_entriesAllocator->use)
+	{
+		tdk_set256Color(tdk_Color_LightBlack, tdk_Layer_Foreground);
+		tdk_writeLine("%*s", 23 + indexColumnLength + domainColumnLength + userColumnLength + sizeColumnLength,
+					  "DIRECTORY IS EMPTY");
+		tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	}
+	for (size_t index = 0; index < g_entriesAllocator->use; ++index)
+	{
+		struct Entry entry = *((struct Entry*)g_entriesAllocator->buffer + index);
+		tdk_write("%*zu ", indexColumnLength, index + 1);
+		if (entry.credential)
+		{
+			tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+			tdk_write("%-*s ", domainColumnLength, entry.credential->domain.buffer);
+			tdk_set256Color(tdk_Color_Green, tdk_Layer_Foreground);
+			tdk_write("%-*s ", userColumnLength, entry.credential->user.buffer);
+		}
+		else
+		{
+			tdk_write("%-*c %-*c ", domainColumnLength, '-', userColumnLength, '-');
+		}
+		tdk_set256Color(tdk_Color_Yellow, tdk_Layer_Foreground);
+		SYSTEMTIME systemModifiedTime;
+		FileTimeToSystemTime(&entry.modifiedTime, &systemModifiedTime);
+		size_t modifiedDateSize;
+		char* modifiedDate = formatEntryModifiedDate(systemModifiedTime.wMonth - 1, systemModifiedTime.wDay,
+													 systemModifiedTime.wYear, &modifiedDateSize);
+		tdk_write("%s ", modifiedDate);
+		deallocateArenaMemory(__LINE__, g_temporaryCharAllocator, modifiedDateSize);
+		tdk_set256Color(tdk_Color_Magenta, tdk_Layer_Foreground);
+		tdk_write("%02d:%02d ", systemModifiedTime.wHour, systemModifiedTime.wMinute);
+		if (entry.size)
+		{
+			tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+			tdk_write("%*s ", sizeColumnLength, entry.size);
+		}
+		else
+		{
+			tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+			tdk_write("%*c ", sizeColumnLength, '-');
+		}
+		PARSE_MODE(FILE_ATTRIBUTE_HIDDEN, "h", tdk_Color_Red);
+		PARSE_MODE(FILE_ATTRIBUTE_ARCHIVE, "a", tdk_Color_Green);
+		PARSE_MODE(FILE_ATTRIBUTE_READONLY, "r", tdk_Color_Yellow);
+		PARSE_MODE(FILE_ATTRIBUTE_TEMPORARY, "t", tdk_Color_Red);
+		PARSE_MODE(FILE_ATTRIBUTE_REPARSE_POINT, "l", tdk_Color_Green);
+		tdk_set256Color(entry.mode & FILE_ATTRIBUTE_DIRECTORY ? tdk_Color_Yellow : tdk_Color_Default,
+						tdk_Layer_Foreground);
+		tdk_write(entry.mode & FILE_ATTRIBUTE_DIRECTORY ? "  " : "  ");
+		tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+		tdk_writeLine("%s", entry.name);
+	}
+	resetArenaAllocator(g_entriesAllocator);
+	resetArenaAllocator(g_entriesDataAllocator);
+}
+#else
+static struct Credential* findCredential(uid_t id, int isUser)
+{
+	struct ArenaAllocator* credentialsAllocator = isUser ? g_userCredentialsAllocator : g_groupCredentialsAllocator;
+	struct ArenaAllocator* credentialDataAllocator =
+		isUser ? g_userCredentialsDataAllocator : g_groupCredentialsDataAllocator;
+	for (size_t index = 0; index < credentialsAllocator->use; ++index)
+	{
+		if (((struct Credential*)credentialsAllocator->buffer + index)->id == id)
+		{
+			return (struct Credential*)credentialsAllocator->buffer + index;
+		}
+	}
+	char* name;
+	if (isUser)
+	{
+		struct passwd* user = getpwuid(id);
+		if (!user)
+		{
+			return NULL;
+		}
+		name = user->pw_name;
+	}
+	else
+	{
+		struct group* group = getgrgid(id);
+		if (!group)
+		{
+			return NULL;
+		}
+		name = group->gr_name;
+	}
+	struct Credential* credential = allocateArenaMemory(__LINE__, credentialsAllocator, 1);
+	credential->id = id;
+	credential->name.length = strlen(name);
+	credential->name.buffer = allocateArenaMemory(__LINE__, credentialDataAllocator, credential->name.length + 1);
+	memcpy(credential->name.buffer, name, credential->name.length + 1);
+	return credential;
+}
+
+static void readDirectory(const char* directoryPath)
+{
+	DIR* directoryStream = opendir(directoryPath);
+	if (!directoryStream)
+	{
+		struct stat directoryStatus;
+		throwLog(__LINE__, LogType_Warning,
+				 stat(directoryPath, &directoryStatus) ? "can not find the entry \"%s\"."
+				 : S_ISDIR(directoryStatus.st_mode)    ? "can not open the directory \"%s\"."
+													   : "the entry \"%s\" is not a directory.",
+				 directoryPath);
+		return;
+	}
+	size_t directoryPathLength = strlen(directoryPath);
+	int indexColumnLength = 3;
+	int userColumnLength = 4;
+	int groupColumnLength = 5;
+	int sizeColumnLength = 4;
+	for (struct dirent* entryData; (entryData = readdir(directoryStream));)
+	{
+		if (*entryData->d_name == '.' &&
+			(!entryData->d_name[1] || (entryData->d_name[1] == '.' && !entryData->d_name[2])))
+		{
+			continue;
+		}
+		struct Entry* entry = allocateArenaMemory(__LINE__, g_entriesAllocator, 1);
+		size_t entryNameSize = strlen(entryData->d_name) + 1;
+		size_t entryPathSize = directoryPathLength + entryNameSize + 1;
+		char* entryPath = allocateArenaMemory(__LINE__, g_temporaryCharAllocator, entryPathSize);
+		memcpy(entryPath, directoryPath, directoryPathLength);
+		entryPath[directoryPathLength] = '/';
+		memcpy(entryPath + directoryPathLength + 1, entryData->d_name, entryNameSize);
+		struct stat entryStatus;
+		lstat(entryPath, &entryStatus);
+		if (S_ISLNK(entryStatus.st_mode))
+		{
+			char link[256];
+			link[readlink(entryPath, link, sizeof(link))] = 0;
+			size_t linkSize = strlen(link) + 1;
+			entry->link = allocateArenaMemory(__LINE__, g_entriesDataAllocator, linkSize);
+			memcpy(entry->link, link, linkSize);
+		}
+		else
+		{
+			entry->link = NULL;
+		}
+		deallocateArenaMemory(__LINE__, g_temporaryCharAllocator, entryPathSize);
+		entry->modifiedTime = entryStatus.st_mtim.tv_sec;
+		entry->mode = entryStatus.st_mode;
+		size_t sizeLength;
+		entry->size = formatEntrySize(&sizeLength, entryStatus.st_size, S_ISDIR(entryStatus.st_mode));
+		entry->user = findCredential(entryStatus.st_uid, 1);
+		entry->group = findCredential(entryStatus.st_gid, 0);
+		entry->name = allocateArenaMemory(__LINE__, g_entriesDataAllocator, entryNameSize);
+		memcpy(entry->name, entryData->d_name, entryNameSize);
+		if (entry->user)
+		{
+			SAVE_GREATER(userColumnLength, entry->user->name.length);
+		}
+		if (entry->group)
+		{
+			SAVE_GREATER(groupColumnLength, entry->group->name.length);
+		}
+		SAVE_GREATER(sizeColumnLength, sizeLength);
+	}
+	closedir(directoryStream);
+	int totalDigitsInMaximumIndex = countDigits(g_entriesAllocator->use);
+	SAVE_GREATER(indexColumnLength, totalDigitsInMaximumIndex);
+	tdk_set256Color(tdk_Color_Yellow, tdk_Layer_Foreground);
+	tdk_write(" ");
+	tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	char* directoryFullPath = allocateArenaMemory(__LINE__, g_temporaryCharAllocator, 256);
+	realpath(directoryPath, directoryFullPath);
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeLine("%s:", directoryFullPath);
+	tdk_setWeight(tdk_Weight_Default);
+	deallocateArenaMemory(__LINE__, g_temporaryCharAllocator, 256);
+	qsort(g_entriesAllocator->buffer, g_entriesAllocator->use, sizeof(struct Entry), sortEntriesAlphabetically);
+	tdk_setWeight(tdk_Weight_Bold);
+	tdk_writeLine("%*s %-*s %-*s %-*s %*s %-*s Name", indexColumnLength, "No.", groupColumnLength, "Group",
+				  userColumnLength, "User", 17, "Modified Date", sizeColumnLength, "Size", 13, "Mode");
+	tdk_setWeight(tdk_Weight_Default);
+	writeLines(7, indexColumnLength, groupColumnLength, userColumnLength, 17, sizeColumnLength, 13, 20);
+	if (!g_entriesAllocator->use)
+	{
+		tdk_set256Color(tdk_Color_LightBlack, tdk_Layer_Foreground);
+		tdk_writeLine("%*s", 29 + indexColumnLength + groupColumnLength + userColumnLength + sizeColumnLength,
+					  "DIRECTORY IS EMPTY");
+		tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+	}
+	for (size_t index = 0; index < g_entriesAllocator->use; ++index)
+	{
+		struct Entry entry = *((struct Entry*)g_entriesAllocator->buffer + index);
+		tdk_write("%*zu ", indexColumnLength, index + 1);
+		if (entry.group)
+		{
+			tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+			tdk_write("%-*s ", groupColumnLength, entry.group->name.buffer);
+		}
+		else
+		{
+			tdk_write("%-*c ", groupColumnLength, '-');
+		}
+		if (entry.user)
+		{
+			tdk_set256Color(tdk_Color_Green, tdk_Layer_Foreground);
+			tdk_write("%-*s ", userColumnLength, entry.user->name.buffer);
+		}
+		else
+		{
+			tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+			tdk_write("%-*c ", userColumnLength, '-');
+		}
+		struct tm* systemModifiedTime = localtime(&entry.modifiedTime);
+		size_t modifiedDateSize;
+		char* modifiedDate = formatEntryModifiedDate(systemModifiedTime->tm_mon, systemModifiedTime->tm_mday,
+													 systemModifiedTime->tm_year + 1900, &modifiedDateSize);
+		tdk_set256Color(tdk_Color_Yellow, tdk_Layer_Foreground);
+		tdk_write("%s ", modifiedDate);
+		deallocateArenaMemory(__LINE__, g_temporaryCharAllocator, modifiedDateSize);
+		tdk_set256Color(tdk_Color_Magenta, tdk_Layer_Foreground);
+		tdk_write("%02d:%02d ", systemModifiedTime->tm_hour, systemModifiedTime->tm_min);
+		if (entry.size)
+		{
+			tdk_set256Color(tdk_Color_Red, tdk_Layer_Foreground);
+			tdk_write("%*s ", sizeColumnLength, entry.size);
+		}
+		else
+		{
+			tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+			tdk_write("%*c ", sizeColumnLength, '-');
+		}
+		PARSE_MODE(S_IRUSR, "r", tdk_Color_Red);
+		PARSE_MODE(S_IWUSR, "w", tdk_Color_Green);
+		PARSE_MODE(S_IXUSR, "x", tdk_Color_Yellow);
+		PARSE_MODE(S_IRGRP, "r", tdk_Color_Red);
+		PARSE_MODE(S_IWGRP, "w", tdk_Color_Green);
+		PARSE_MODE(S_IXGRP, "x", tdk_Color_Yellow);
+		PARSE_MODE(S_IROTH, "r", tdk_Color_Red);
+		PARSE_MODE(S_IWOTH, "w", tdk_Color_Green);
+		PARSE_MODE(S_IXOTH, "x", tdk_Color_Yellow);
+		tdk_set256Color(tdk_Color_Magenta, tdk_Layer_Foreground);
+		tdk_write(" %o ", entry.mode & (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH |
+										S_IXOTH));
+		tdk_set256Color(S_ISDIR(entry.mode)    ? tdk_Color_Yellow
+						: S_ISLNK(entry.mode)  ? tdk_Color_Blue
+						: S_ISBLK(entry.mode)  ? tdk_Color_Magenta
+						: S_ISCHR(entry.mode)  ? tdk_Color_Green
+						: S_ISFIFO(entry.mode) ? tdk_Color_Blue
+						: S_ISREG(entry.mode)  ? tdk_Color_Default
+											   : tdk_Color_Cyan,
+						tdk_Layer_Foreground);
+		tdk_write(S_ISDIR(entry.mode)    ? " "
+				  : S_ISLNK(entry.mode)  ? "󰌷 "
+				  : S_ISBLK(entry.mode)  ? "󰇖 "
+				  : S_ISCHR(entry.mode)  ? "󱣴 "
+				  : S_ISFIFO(entry.mode) ? "󰟦 "
+				  : S_ISREG(entry.mode)  ? " "
+										 : "󱄙 ");
+		tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+		tdk_write("%s", entry.name);
+		if (entry.link)
+		{
+			tdk_set256Color(tdk_Color_Blue, tdk_Layer_Foreground);
+			tdk_write(" -> ");
+			tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
+			tdk_writeLine(entry.link);
+		}
+		else
+		{
+			tdk_writeLine("");
+		}
+	}
+	resetArenaAllocator(g_entriesAllocator);
+	resetArenaAllocator(g_entriesDataAllocator);
+}
+
+static int sortEntriesAlphabetically(const void* entry0, const void* entry1)
+{
+	return strcmp(((struct Entry*)entry0)->name, ((struct Entry*)entry1)->name);
+}
+#endif
+
+#ifdef _WIN32
+int main(void)
+{
+	g_securityDescriptorBuffer = allocateHeapMemory(__LINE__, SECURITY_DESCRIPTOR_BUFFER_SIZE);
+	g_entriesAllocator = allocateArenaAllocator("g_entriesAllocator", sizeof(struct Entry), 20000);
+	g_entriesDataAllocator = allocateArenaAllocator("g_entriesDataAllocator", sizeof(char), 2097152);
+	g_temporaryCharAllocator =
+		allocateArenaAllocator("g_temporaryCharAllocator", sizeof(char), TOTAL_TEMPORARY_ALLOCATIONS);
+	g_temporaryWCharAllocator =
+		allocateArenaAllocator("g_temporaryWCharAllocator", sizeof(wchar_t), TOTAL_TEMPORARY_ALLOCATIONS);
+	g_credentialsAllocator =
+		allocateArenaAllocator("g_credentialsAllocator", sizeof(struct Credential), TOTAL_CREDENTIALS_EXPECTED);
+	g_credentialsDataAllocator = allocateArenaAllocator(
+		"g_credentialsDataAllocator", sizeof(char), AVERAGE_CREDENTIAL_NAME_LENGTH * 2 * TOTAL_CREDENTIALS_EXPECTED);
+	int totalArguments;
+	LPWSTR* arguments = CommandLineToArgvW(GetCommandLineW(), &totalArguments);
+	if (totalArguments == 1)
+	{
+		readDirectory(L".");
+		goto end;
+	}
+	for (int index = 1; index < totalArguments; ++index)
+	{
+		PARSE_OPTION("help", writeHelp());
+		PARSE_OPTION("license", writeLicense());
+		PARSE_OPTION("version", writeVersion());
+	}
+	for (int index = 1; index < totalArguments; ++index)
+	{
+		readDirectory(arguments[index]);
+	}
+end:
+#ifdef DEBUG
+	dumpArenaAllocator(g_entriesAllocator);
+	dumpArenaAllocator(g_entriesDataAllocator);
+	dumpArenaAllocator(g_temporaryCharAllocator);
+	dumpArenaAllocator(g_temporaryWCharAllocator);
+	dumpArenaAllocator(g_credentialsAllocator);
+	dumpArenaAllocator(g_credentialsDataAllocator);
+#endif
+	LocalFree(arguments);
+	free(g_securityDescriptorBuffer);
+	deallocateArenaAllocator(g_entriesAllocator);
+	deallocateArenaAllocator(g_entriesDataAllocator);
+	deallocateArenaAllocator(g_temporaryCharAllocator);
+	deallocateArenaAllocator(g_temporaryWCharAllocator);
+	deallocateArenaAllocator(g_credentialsAllocator);
+	deallocateArenaAllocator(g_credentialsDataAllocator);
+	return g_exitCode;
+}
+#else
+int main(int totalArguments, const char** arguments)
+{
+	g_entriesAllocator = allocateArenaAllocator("g_entriesAllocator", sizeof(struct Entry), 20000);
+	g_entriesDataAllocator = allocateArenaAllocator("g_entriesDataAllocator", sizeof(char), 2097152);
+	g_temporaryCharAllocator =
+		allocateArenaAllocator("g_temporaryCharAllocator", sizeof(char), TOTAL_TEMPORARY_ALLOCATIONS);
+	g_userCredentialsAllocator =
+		allocateArenaAllocator("g_userCredentialsAllocator", sizeof(struct Credential), TOTAL_CREDENTIALS_EXPECTED);
+	g_userCredentialsDataAllocator = allocateArenaAllocator(
+		"g_userCredentialsDataAllocator", sizeof(char), AVERAGE_CREDENTIAL_NAME_LENGTH * TOTAL_CREDENTIALS_EXPECTED);
+	g_groupCredentialsAllocator =
+		allocateArenaAllocator("g_groupCredentialsAllocator", sizeof(struct Credential), TOTAL_CREDENTIALS_EXPECTED);
+	g_groupCredentialsDataAllocator = allocateArenaAllocator(
+		"g_groupCredentialsDataAllocator", sizeof(char), AVERAGE_CREDENTIAL_NAME_LENGTH * TOTAL_CREDENTIALS_EXPECTED);
+	if (totalArguments == 1)
+	{
+		readDirectory(".");
+		goto exit;
+	}
+	for (int index = 1; index < totalArguments; ++index)
+	{
+		PARSE_OPTION("help", writeHelp());
+		PARSE_OPTION("license", writeLicense());
+		PARSE_OPTION("version", writeVersion());
+	}
+	for (int index = 1; index < totalArguments; ++index)
+	{
+		readDirectory(arguments[index]);
+	}
 exit:
-  *bufferLength = strlen(format);
-  char *buffer = allocateArenaMemory(entriesDataAllocator_g, *bufferLength + 1);
-  memcpy(buffer, format, *bufferLength + 1);
-  return buffer;
+#ifdef DEBUG
+	dumpArenaAllocator(g_entriesAllocator);
+	dumpArenaAllocator(g_entriesDataAllocator);
+	dumpArenaAllocator(g_temporaryCharAllocator);
+	dumpArenaAllocator(g_userCredentialsAllocator);
+	dumpArenaAllocator(g_userCredentialsDataAllocator);
+	dumpArenaAllocator(g_groupCredentialsAllocator);
+	dumpArenaAllocator(g_groupCredentialsDataAllocator);
+#endif
+	deallocateArenaAllocator(g_entriesAllocator);
+	deallocateArenaAllocator(g_entriesDataAllocator);
+	deallocateArenaAllocator(g_temporaryCharAllocator);
+	deallocateArenaAllocator(g_userCredentialsAllocator);
+	deallocateArenaAllocator(g_userCredentialsDataAllocator);
+	deallocateArenaAllocator(g_groupCredentialsAllocator);
+	deallocateArenaAllocator(g_groupCredentialsDataAllocator);
+	return g_exitCode;
 }
-
-static void help(void) {
-  puts("Usage: dl [OPTION]... [PATH]...");
-  puts("Lists the entries inside of directories given their PATH(s).");
-  puts("If no path is provided, the current directory is considered.\n");
-  puts("OPTIONS");
-  puts("    --help    print these instructions.");
-  puts("    --version print its version.");
-}
-
-static void readDirectory(char *directoryPath) {
-  DIR *stream = opendir(directoryPath);
-  if (!stream) {
-    struct stat status;
-    writeError(stat(directoryPath, &status) ? "can not find the entry \"%s\"."
-               : S_ISDIR(status.st_mode)
-                   ? "can not open the directory \"%s\"."
-                   : "the entry \"%s\" is not a directory.",
-               directoryPath);
-    return;
-  }
-  size_t directoryPathLength = strlen(directoryPath);
-  size_t totalEntries = 0;
-  int indexColumnLength = 3;
-  int userColumnLength = 4;
-  int groupColumnLength = 5;
-  int sizeColumnLength = 4;
-  for (struct dirent *entryRegister; (entryRegister = readdir(stream));) {
-    if (*entryRegister->d_name == '.' &&
-        (!entryRegister->d_name[1] ||
-         (entryRegister->d_name[1] == '.' && !entryRegister->d_name[2]))) {
-      continue;
-    }
-    size_t nameLength = strlen(entryRegister->d_name);
-    size_t entryPathLength = directoryPathLength + nameLength + 1;
-    char *entryPath =
-        allocateArenaMemory(temporaryAllocator_g, entryPathLength + 1);
-    sprintf(entryPath, "%s/%s", directoryPath, entryRegister->d_name);
-    struct stat status;
-    lstat(entryPath, &status);
-    struct Entry *entry =
-        allocateArenaMemory(entriesAllocator_g, sizeof(struct Entry));
-    if (S_ISLNK(status.st_mode)) {
-      char link[MAXIMUM_PATH_LENGTH + 1];
-      link[readlink(entryPath, link, sizeof(link))] = 0;
-      size_t linkLength = strlen(link);
-      entry->link = allocateArenaMemory(entriesDataAllocator_g, linkLength + 1);
-      memcpy(entry->link, link, linkLength + 1);
-    } else {
-      entry->link = NULL;
-    }
-    deallocateArenaMemory(temporaryAllocator_g, entryPathLength + 1);
-    entry->user = findCredentialByID(1, status.st_uid);
-    entry->group = findCredentialByID(0, status.st_gid);
-    entry->modifiedEpoch = status.st_mtim.tv_sec;
-    entry->mode = status.st_mode;
-    entry->name = allocateArenaMemory(entriesDataAllocator_g, nameLength + 1);
-    memcpy(entry->name, entryRegister->d_name, nameLength + 1);
-    size_t sizeLength;
-    entry->size = formatEntrySize(&sizeLength, &status);
-    ++totalEntries;
-    SAVE_GREATER(userColumnLength, (int)entry->user->nameLength);
-    SAVE_GREATER(groupColumnLength, (int)entry->group->nameLength);
-    SAVE_GREATER(sizeColumnLength, (int)sizeLength);
-  }
-  closedir(stream);
-  qsort(entriesAllocator_g->buffer, totalEntries, sizeof(struct Entry),
-        sortEntriesAlphabetically);
-  int totalDigitsInMaximumIndex = countDigits(totalEntries);
-  SAVE_GREATER(indexColumnLength, totalDigitsInMaximumIndex);
-  printf("%-*s %-*s %-*s %-*s %*s %-*s %s\n", indexColumnLength, "No.",
-         userColumnLength, "User", groupColumnLength, "Group", 17,
-         "Modified Date", sizeColumnLength, "Size", 14, "Mode", "Name");
-  writeLine(7, indexColumnLength, userColumnLength, groupColumnLength, 17,
-            sizeColumnLength, 14, 15);
-  if (!totalEntries) {
-    printf("%*s\n",
-           26 + indexColumnLength + userColumnLength + groupColumnLength +
-               sizeColumnLength,
-           "DIRECTORY IS EMPTY");
-  }
-  for (size_t index = 0; index < totalEntries; ++index) {
-    struct Entry entry = *((struct Entry *)entriesAllocator_g->buffer + index);
-    struct tm *modifiedTime = localtime(&entry.modifiedEpoch);
-    char date[12];
-    strftime(date, sizeof(date), "%b %d %Y", modifiedTime);
-    printf("%*zu ", indexColumnLength, index + 1);
-    setColor(Color_Red);
-    printf("%-*s ", userColumnLength, entry.user->name);
-    setColor(Color_Green);
-    printf("%-*s ", groupColumnLength, entry.group->name);
-    setColor(Color_Yellow);
-    printf("%s ", date);
-    setColor(Color_Magenta);
-    printf("%02d:%02d ", modifiedTime->tm_hour, modifiedTime->tm_min);
-    setColor(!entry.size[1] ? Color_Default : Color_Red);
-    printf("%*s ", sizeColumnLength, entry.size);
-    setColor(S_ISREG(entry.mode) ? Color_Default : Color_Blue);
-    putchar(S_ISDIR(entry.mode)    ? 'd'
-            : S_ISLNK(entry.mode)  ? 'l'
-            : S_ISBLK(entry.mode)  ? 'b'
-            : S_ISCHR(entry.mode)  ? 'c'
-            : S_ISFIFO(entry.mode) ? 'f'
-            : S_ISREG(entry.mode)  ? '-'
-                                   : 's');
-    PARSE_FILE_PERMISSION(S_IRUSR, 'r', Color_Red);
-    PARSE_FILE_PERMISSION(S_IWUSR, 'w', Color_Green);
-    PARSE_FILE_PERMISSION(S_IXUSR, 'x', Color_Yellow);
-    PARSE_FILE_PERMISSION(S_IRGRP, 'r', Color_Red);
-    PARSE_FILE_PERMISSION(S_IWGRP, 'w', Color_Green);
-    PARSE_FILE_PERMISSION(S_IXGRP, 'x', Color_Yellow);
-    PARSE_FILE_PERMISSION(S_IROTH, 'r', Color_Red);
-    PARSE_FILE_PERMISSION(S_IWOTH, 'w', Color_Green);
-    PARSE_FILE_PERMISSION(S_IXOTH, 'x', Color_Yellow);
-    setColor(Color_Magenta);
-    printf(" %03o ",
-           entry.mode & (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP |
-                         S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH));
-    setColor(S_ISDIR(entry.mode)    ? Color_Yellow
-             : S_ISLNK(entry.mode)  ? Color_Blue
-             : S_ISBLK(entry.mode)  ? Color_Magenta
-             : S_ISCHR(entry.mode)  ? Color_Green
-             : S_ISFIFO(entry.mode) ? Color_Blue
-             : S_ISREG(entry.mode)  ? Color_Default
-                                    : Color_Cyan);
-    printf(S_ISDIR(entry.mode)    ? " "
-           : S_ISLNK(entry.mode)  ? "󰌷 "
-           : S_ISBLK(entry.mode)  ? "󰇖 "
-           : S_ISCHR(entry.mode)  ? "󱣴 "
-           : S_ISFIFO(entry.mode) ? "󰟦 "
-           : S_ISREG(entry.mode)  ? " "
-                                  : "󱄙 ");
-    setColor(Color_Default);
-    printf("%s", entry.name);
-    if (entry.link) {
-      setColor(Color_Blue);
-      printf(" -> ");
-      setColor(Color_Default);
-      printf("%s", entry.link);
-    }
-    putchar('\n');
-  }
-  resetArenaAllocator(entriesAllocator_g);
-  resetArenaAllocator(entriesDataAllocator_g);
-  writeLine(1, 52 + indexColumnLength + userColumnLength + groupColumnLength +
-                   sizeColumnLength);
-  setColor(Color_Red);
-  printf(":: ");
-  setColor(Color_Default);
-  printf("Path: ");
-  setColor(Color_Green);
-  char *fullPath =
-      realpath(directoryPath, allocateArenaMemory(temporaryAllocator_g,
-                                                  MAXIMUM_PATH_LENGTH + 1));
-  printf("%s", fullPath);
-  resetArenaAllocator(temporaryAllocator_g);
-  setColor(Color_Default);
-  printf(".\n");
-  setColor(Color_Red);
-  printf(":: ");
-  setColor(Color_Default);
-  printf("Total: ");
-  setColor(Color_Yellow);
-  printf("%zu", totalEntries);
-  setColor(Color_Default);
-  printf(" %s.\n", totalEntries == 1 ? "entry" : "entries");
-}
-
-static void resetArenaAllocator(struct ArenaAllocator *allocator) {
-  allocator->cursor = allocator->buffer;
-}
-
-static void setColor(int color) {
-  if (isOutputTTY_g) {
-    printf("\x1b[3%dm", color);
-  }
-}
-
-static int sortEntriesAlphabetically(const void *entry0, const void *entry1) {
-  return strcmp(((struct Entry *)entry0)->name, ((struct Entry *)entry1)->name);
-}
-
-static void throwError(char *format, ...) {
-  fprintf(stderr, "dl: ");
-  va_list arguments;
-  va_start(arguments, format);
-  vfprintf(stderr, format, arguments);
-  va_end(arguments);
-  fputc('\n', stderr);
-  exit(1);
-}
-
-static void writeError(char *format, ...) {
-  fprintf(stderr, "dl: ");
-  va_list arguments;
-  va_start(arguments, format);
-  vfprintf(stderr, format, arguments);
-  va_end(arguments);
-  fputc('\n', stderr);
-  exitCode_g = 1;
-}
-
-static void writeLine(size_t totalLines, ...) {
-  va_list arguments;
-  va_start(arguments, totalLines);
-  for (size_t index = 0; index < totalLines; ++index) {
-    int length = va_arg(arguments, int);
-    for (int column = 0; column < length; ++column) {
-      setColor(column % 2 ? Color_Red : Color_Yellow);
-      printf(column % 2 ? "v" : "≥");
-    }
-    if (index < totalLines - 1) {
-      putchar(' ');
-    }
-  }
-  va_end(arguments);
-  setColor(Color_Default);
-  putchar('\n');
-}
-
-int main(int totalArguments, char **arguments) {
-  userCredentialsAllocator_g = allocateArenaAllocator(
-      "userCredentialsAllocator_g",
-      sizeof(struct Credential) * MAXIMUM_CREDENTIALS_EXPECTED +
-          sizeof(size_t));
-  groupCredentialsAllocator_g = allocateArenaAllocator(
-      "groupCredentialAllocator_g", userCredentialsAllocator_g->size);
-  credentialsDataAllocator_g = allocateArenaAllocator(
-      "credentialsDataAllocator_g",
-      (AVERAGE_CREDENTIAL_NAME_LENGTH + 1) * MAXIMUM_CREDENTIALS_EXPECTED);
-  entriesAllocator_g = allocateArenaAllocator(
-      "entriesAllocator_g", sizeof(struct Entry) * MAXIMUM_ENTRIES_EXPECTED);
-  entriesDataAllocator_g = allocateArenaAllocator(
-      "entriesDataAllocator_g",
-      (AVERAGE_ENTRY_NAME_LENGTH * 2 + 9) * MAXIMUM_ENTRIES_EXPECTED);
-  temporaryAllocator_g =
-      allocateArenaAllocator("temporaryAllocator_g", MAXIMUM_PATH_LENGTH + 1);
-  isOutputTTY_g = isatty(STDOUT_FILENO);
-  if (totalArguments == 1) {
-    readDirectory(".");
-    goto exit;
-  }
-  for (int index = 1; index < totalArguments; ++index) {
-    PARSE_OPTION("version", puts(VERSION));
-    PARSE_OPTION("help", help());
-  }
-  for (int index = 1; index < totalArguments; ++index) {
-    readDirectory(arguments[index]);
-  }
-exit:
-  deallocateArenaAllocator(userCredentialsAllocator_g);
-  deallocateArenaAllocator(groupCredentialsAllocator_g);
-  deallocateArenaAllocator(credentialsDataAllocator_g);
-  deallocateArenaAllocator(entriesAllocator_g);
-  deallocateArenaAllocator(entriesDataAllocator_g);
-  deallocateArenaAllocator(temporaryAllocator_g);
-  return exitCode_g;
-}
+#endif
