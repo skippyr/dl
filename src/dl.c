@@ -657,8 +657,8 @@ static void readDirectory(const char* directoryPath)
 		PARSE_MODE(S_IWOTH, "w", tdk_Color_Green);
 		PARSE_MODE(S_IXOTH, "x", tdk_Color_Yellow);
 		tdk_set256Color(tdk_Color_Magenta, tdk_Layer_Foreground);
-		tdk_write(" %03o ", entry.mode & (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH |
-										S_IXOTH));
+		tdk_write(" %03o ", entry.mode & (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH |
+										  S_IWOTH | S_IXOTH));
 		tdk_set256Color(S_ISDIR(entry.mode)    ? tdk_Color_Yellow
 						: S_ISLNK(entry.mode)  ? tdk_Color_Blue
 						: S_ISBLK(entry.mode)  ? tdk_Color_Magenta
