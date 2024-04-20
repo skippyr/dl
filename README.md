@@ -2,7 +2,6 @@
 	<img alt="" src="assets/ornament.webp" />
 </p>
 <h1 align="center">≥v≥v&ensp;dl&ensp;≥v≥v</h1>
-<p align="center">Directory Lister</p>
 <p align="center">
 	<img alt="" src="https://img.shields.io/github/license/skippyr/dl?style=plastic&label=%E2%89%A5%20license&labelColor=%2324130e&color=%23b8150d" />
 	&nbsp;
@@ -15,35 +14,12 @@
 
 ## ❡ About
 
-A simple directory listing utility for Windows and Linux.
+A simple directory listing utility for Linux.
 
 <p align="center">
-	<img alt="" src="assets/preview-windows.webp" />
-	<img alt="" src="assets/preview-linux.webp" />
+	<img alt="" src="assets/preview.webp" />
 </p>
-<p align="center"><sup><strong>Caption:</strong> two previews of <code>dl</code> listing a directory on Windows and Linux, respectively. The terminal theme used is <a href="https://github.com/skippyr/flamerial">Flamerial</a>, the Linux shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a> and font is <a href="https://fonts.google.com/specimen/Fira+Mono">Fira Mono</a>.</sup></p>
-
-### Features
-
-For each entry in a directory, it displays:
-
-- On Windows:
-	- Its index on the listing.
-	- Its domain and user names.
-	- Its last modified date.
-	- Its size in a convenient human readable: terabyte (TB), gigabyte (GB), megabyte (MB), kilobyte (kB) or byte (B).
-	- Its hidden (h), archive (a), read-only (r), temporary (t), recurse-point (l) and lack (-) attributes.
-	- An icon representing its type.
-	- Its name.
-- On Linux:
-	- Its index on the listing.
-	- Its group and user names.
-	- Its last modified date.
-	- Its size in a convenient human readable: terabyte (TB), gigabyte (GB), megabyte (MB), kilobyte (kB) or byte (B).
-	- Its read (r), write (w), execute (x) and lack (-) permissions for user, group and others, respectively.
-	- Its permissions in octal base.
-	- An icon representing its type.
-	- Its name. And if it is a symlink, it also contains the path that it points to.
+<p align="center"><sup><strong>Caption:</strong> a preview of <code>dl</code> running on a terminal. The terminal theme used is <a href="https://github.com/skippyr/flamerial">flamerial</a> and font is <a href="https://github.com/be5invis/Iosevka">iosevka ss08</a>.</sup></p>
 
 ## ❡ Install
 
@@ -51,51 +27,58 @@ For each entry in a directory, it displays:
 
 The following dependencies must be installed before installing it:
 
-#### Dependencies For Windows
-
-- [**Visual Studio 2022**](https://visualstudio.microsoft.com): it provides all the tools required to build this software.
-- [**git**](https://git-scm.com): it will be used to clone this repository.
-- [**Nerd Font Symbols**](https://www.nerdfonts.com/font-downloads): this font provides the pretty symbols used in the software.
-
-#### Dependencies For Linux
-
-- **gcc**, **cmake**, **ninja**: they will be used to build this software.
 - **git**: it will be used to clone this repository.
-- [**Nerd Font Symbols**](https://www.nerdfonts.com/font-downloads), **Noto Sans** and **Noto Sans Emoji**: these fonts provide the pretty symbols used in the software.
+- **gcc**, **make**: they will be used to compile this software.
+- [**libtdk**](https://github.com/skippyr/libtdk): it is a library required as dependency.
 
 ### Procedures
 
-On Windows, using `Developer PowerShell For VS 2022`, or, on Linux, using any terminal, follow these steps:
+To install this software, using a terminal, follow these steps:
 
 - Clone this repository using `git`:
 
 ```sh
-git clone --recurse-submodules --depth 1 https://github.com/skippyr/dl;
+git clone --depth 1 https://github.com/skippyr/dl;
 ```
 
-- Access the repository directory using `cd`:
+- Access the directory of the repository you cloned using `cd`:
 
 ```sh
 cd dl;
 ```
 
-- Use `cmake` to build and install it:
+- Use `make` to compile and install this software:
 
 ```sh
-cmake -B build/cmake -G Ninja;
-cmake --build build/cmake;
-cmake --install build/cmake;
+make install;
 ```
 
-- Add the install directory, `build/bin`, to your `PATH` system environment variable.
-- Reopen your shell.
+- Add the following environment variables to your shell startup file in order to include the installed files that are at the directories under `~/.local/share`:
+
+```zsh
+export PATH=${PATH}:~/.local/share/bin;
+export MANPATH=${PATH}:~/.local/share/man;
+```
+
+- Open a new shell session.
+
+## ❡ Uninstall
+
+To uninstall this software, using a terminal, follow these steps:
+
+- Go back to the directory of the repository you cloned.
+- Use `make` to uninstall it:
+
+```sh
+make uninstall;
+```
 
 ## ❡ Documentation
 
-For a quick help about its usage syntax and available options, use its `--help` option:
+After installed, you can access its documentation using `man`:
 
 ```sh
-dl --help;
+man dl.1;
 ```
 
 ## ❡ Help

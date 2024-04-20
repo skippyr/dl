@@ -1,7 +1,0 @@
-cmake_minimum_required(VERSION 3.20)
-project(dl)
-add_executable(dl "${CMAKE_SOURCE_DIR}/src/dl.c" "${CMAKE_SOURCE_DIR}/src/dl.h")
-add_library(tdk "${CMAKE_SOURCE_DIR}/lib/libtdk/src/tdk.c" "${CMAKE_SOURCE_DIR}/lib/libtdk/src/tdk.h")
-target_include_directories(dl PRIVATE "${CMAKE_SOURCE_DIR}/lib/libtdk/src")
-target_link_libraries(dl tdk)
-install(TARGETS dl DESTINATION "${CMAKE_SOURCE_DIR}/build/bin")

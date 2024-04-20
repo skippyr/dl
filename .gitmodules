@@ -1,3 +1,0 @@
-[submodule "lib/libtdk"]
-	path = lib/libtdk
-	url = https://github.com/skippyr/libtdk
