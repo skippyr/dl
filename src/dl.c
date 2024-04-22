@@ -301,8 +301,7 @@ listdir(char *dirpath)
 				SAVEGREATER(szcollen, tmpsz);
 		}
 	close(fd);
-	if ((i = countdigits(entarn_g->use)) > 4)
-		++i;
+	i = countdigits(entarn_g->use) + (entarn_g->use > 1000);
 	SAVEGREATER(nocollen, i);
 	tdk_set256clr(TDK_CLRYLW, TDK_LYRFG);
 	if (isouttty_g)
@@ -449,7 +448,7 @@ writeentno(int no, int align)
 	int lpad;
 	sprintf(buf, "%d", no);
 	for (len = 0; buf[len]; ++len);
-	lpad = align - len - (len > 4);
+	lpad = align - len - (len >= 4);
 	for (i = 0; i < lpad; ++i)
 		putchar(' ');
 	for (seppos = len - 3, i = 0; i < len; ++i) {
