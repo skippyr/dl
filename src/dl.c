@@ -194,8 +194,8 @@ fmtsz(struct stat *s, size_t *len)
 		if (s->st_size >= mval[i]) {
 			sz = s->st_size / mval[i];
 			pref = mpref[i];
-			sprintf(num, (tmp = sz - (int)sz) >= 0 && tmp < 0.1 ? "%.0f" :
-					"%.1f", sz);
+			sprintf(num, ((tmp = sz - (int)sz) >= 0 && tmp < 0.1) ||
+				    tmp >= 0.95 ? "%.0f" : "%.1f", sz);
 			seppos = -2;
 			goto fmt_l;
 		}
