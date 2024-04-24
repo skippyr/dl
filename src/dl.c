@@ -228,7 +228,7 @@ freearn(struct arn *a)
 static void
 listdir(char *dirpath)
 {
-	int fd = open(dirpath, O_RDONLY);
+	int fd;
 	struct stat s;
 	struct linux_dirent64 *d;
 	struct ent *e;
@@ -246,10 +246,14 @@ listdir(char *dirpath)
 	int usrcollen = 4;
 	int grpcollen = 5;
 	int szcollen = 4;
-	if (fd < 0) {
-		writewarn(stat(dirpath, &s) ? "can not find the entry \"%s\"." :
-				 S_ISDIR(s.st_mode) ? "can not open the directory \"%s\"." :
-				 "the entry \"%s\" is not a directory.", dirpath);
+	if (stat(dirpath, &s)) {
+		writewarn("can not find the entry \"%s\".", dirpath);
+		return;
+	} else if (!S_ISDIR(s.st_mode)) {
+		writewarn("the entry \"%s\" is not a directory.", dirpath);
+		return;
+	} else if ((fd = open(dirpath, O_RDONLY)) < 0) {
+		writewarn("can not open the directory \"%s\".", dirpath);
 		return;
 	}
 	if (!buf_g)
