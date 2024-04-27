@@ -16,9 +16,9 @@
 #include <tdk.h>
 
 #ifdef __x86_64__
-#define ARCHITECTURE "x86_64"
+#define ARCH "x86_64"
 #else
-#define ARCHITECTURE "x86"
+#define ARCH "x86"
 #endif
 #define BUFSZ 1024
 #define PARSEPERM(perm_a, ch_r, clr_r) \
@@ -93,6 +93,7 @@ static struct arn *entarn_g = NULL;
 static struct arn *entdarn_g = NULL;
 static struct arn *tmparn_g = NULL;
 static char *buf_g = NULL;
+static unsigned short wincols_g;
 static int isouttty_g;
 static int exitcd_g = 0;
 
@@ -234,7 +235,6 @@ listdir(char *dirpath)
 	struct ent *e;
 	struct tm *t;
 	size_t dirpathlen;
-	size_t entnamesz;
 	size_t entpathsz;
 	size_t tmpsz;
 	char *entpath;
@@ -242,10 +242,12 @@ listdir(char *dirpath)
 	char moddate[12];
 	long i;
 	long readsz;
+	int tmpcollen;
 	int nocollen = 3;
 	int usrcollen = 4;
 	int grpcollen = 5;
 	int szcollen = 4;
+	int namecollen = 4;
 	if (stat(dirpath, &s)) {
 		writewarn("can not find the entry \"%s\".", dirpath);
 		return;
@@ -273,21 +275,21 @@ listdir(char *dirpath)
 				!d->d_name[2])))
 				continue;
 			e = allocarnmem(entarn_g, 1);
-			entnamesz = strlen(d->d_name) + 1;
-			entpathsz = dirpathlen + entnamesz + 1;
+			tmpcollen = strlen(d->d_name) + 2;
+			entpathsz = dirpathlen + tmpcollen + 2;
 			entpath = allocarnmem(tmparn_g, entpathsz);
 			memcpy(entpath, dirpath, dirpathlen);
 			entpath[dirpathlen] = '/';
-			memcpy(entpath + dirpathlen + 1, d->d_name, entnamesz);
+			memcpy(entpath + dirpathlen + 1, d->d_name, tmpcollen + 1);
 			lstat(entpath, &s);
-			e->name = allocarnmem(entdarn_g, entnamesz);
-			memcpy(e->name, d->d_name, entnamesz);
+			e->name = allocarnmem(entdarn_g, tmpcollen + 1);
+			memcpy(e->name, d->d_name, tmpcollen + 1);
 			if (d->d_type == DT_LNK) {
 				tmp = allocarnmem(tmparn_g, 300);
 				tmp[readlink(entpath, tmp, 300)] = 0;
-				tmpsz = strlen(tmp) + 1;
-				e->lnk = allocarnmem(entdarn_g, tmpsz);
-				memcpy(e->lnk, tmp, tmpsz);
+				tmpcollen += (tmpsz = strlen(tmp)) + 4;
+				e->lnk = allocarnmem(entdarn_g, tmpsz + 1);
+				memcpy(e->lnk, tmp, tmpsz + 1);
 			} else {
 				e->lnk = NULL;
 			}
@@ -303,10 +305,14 @@ listdir(char *dirpath)
 				SAVEGREATER(grpcollen, e->grp->namelen);
 			if (e->sz)
 				SAVEGREATER(szcollen, tmpsz);
+			SAVEGREATER(namecollen, tmpcollen);
 		}
 	close(fd);
 	i = countdigits(entarn_g->use) + (entarn_g->use > 1000);
 	SAVEGREATER(nocollen, i);
+	if ((tmpcollen = wincols_g - nocollen - grpcollen - usrcollen - szcollen -
+		 36) > 0 && namecollen > tmpcollen)
+		namecollen = tmpcollen;
 	tdk_set256clr(TDK_CLRYLW, TDK_LYRFG);
 	if (isouttty_g)
 		printf("󰝰 ");
@@ -319,11 +325,11 @@ listdir(char *dirpath)
 	printf("%*s %-*s %-*s %-*s %*s %-*s Name\n", nocollen, "No.", grpcollen,
 		   "Group", usrcollen, "User", 17, "Modified Date", szcollen, "Size",
 		   13, "Permissions");
-	writeln(7, nocollen, grpcollen, usrcollen, 17, szcollen, 13, 16);
+	writeln(7, nocollen, grpcollen, usrcollen, 17, szcollen, 13, namecollen);
 	if (!entarn_g->use) {
 		tdk_set256clr(TDK_CLRLBLK, TDK_LYRFG);
-		printf("%*s\n", 27 + nocollen + grpcollen + usrcollen + szcollen,
-			   "DIRECTORY IS EMPTY");
+		printf("%*s\n", 17 + nocollen + grpcollen + usrcollen + szcollen +
+			   namecollen, "DIRECTORY IS EMPTY");
 		tdk_set256clr(TDK_CLRDFT, TDK_LYRFG);
 	}
 	qsort(entarn_g->buf, entarn_g->use, sizeof(struct ent), sortents);
@@ -520,13 +526,14 @@ main(int argc, char **argv)
 {
 	int i;
 	isouttty_g = isatty(1);
+	tdk_getwindim(&wincols_g, NULL);
 	if (argc == 1) {
 		listdir(".");
 		goto end_l;
 	}
 	for (i = 1; i < argc; ++i) {
 		PARSEOPT("version", printf("dl %s (compiled for Linux %s)\n", VERSION,
-								   ARCHITECTURE));
+								   ARCH));
 		PARSEOPT("help", writehelp());
 		if (*argv[i] == '-' && (argv[i][1] == '-' || !argv[i][2]))
 			threrr("the option \"%s\" is unrecognized.", argv[i]);
