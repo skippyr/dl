@@ -1,10 +1,10 @@
-VERSION:=v2.0.0
+VERSION:=v2.0.1
 CC:=cc
-CFLAGS:=-std=c99 -Wpedantic -Wall -Wextra -Wno-unused-result -O3 -ltdk \
-		-DVERSION=\"${VERSION}\"
+CFLAGS:=-std=c99 -Wpedantic -Wall -Wextra -Wno-unused-result -O3 -DVERSION=\"${VERSION}\"
+LIBS:=-ltdk
 BINPATH:=~/.local/share/bin
 MANPATH:=~/.local/share/man
-SHELL:=bash
+SHELL:=zsh
 
 .PHONY: all clean install uninstall
 
@@ -23,4 +23,4 @@ uninstall:
 
 build/bin/dl: src/dl.c
 	mkdir -p build/bin;
-	${CC} ${CFLAGS} -o ${@} ${<};
+	${CC} ${CFLAGS} -o ${@} ${<} ${LIBS};
