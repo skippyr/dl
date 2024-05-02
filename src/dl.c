@@ -329,31 +329,31 @@ static void readDirectory(const char *directoryPath)
         {
         case S_IFDIR:
             tdk_set256Color(tdk_Color_Yellow, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? "󰝰 " : "d");
+            printf(isOutTTY_g ? "󰝰 " : "d ");
             break;
         case S_IFLNK:
             tdk_set256Color(tdk_Color_Blue, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? "󰌷 " : "l");
+            printf(isOutTTY_g ? "󰌷 " : "l ");
             break;
         case S_IFBLK:
             tdk_set256Color(tdk_Color_Magenta, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? "󰇖 " : "b");
+            printf(isOutTTY_g ? "󰇖 " : "b ");
             break;
         case S_IFCHR:
             tdk_set256Color(tdk_Color_Green, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? "󱣴 " : "c");
+            printf(isOutTTY_g ? "󱣴 " : "c ");
             break;
         case S_IFIFO:
             tdk_set256Color(tdk_Color_Blue, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? "󰟦 " : "f");
+            printf(isOutTTY_g ? "󰟦 " : "f ");
             break;
         case S_IFSOCK:
             tdk_set256Color(tdk_Color_Cyan, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? "󱄙 " : "s");
+            printf(isOutTTY_g ? "󱄙 " : "s ");
             break;
         case S_IFREG:
             tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
-            printf(isOutTTY_g ? " " : "-");
+            printf(isOutTTY_g ? " " : "- ");
             break;
         }
         tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
