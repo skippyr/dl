@@ -255,7 +255,10 @@ static void readDirectory(const char *directoryPath)
     char *fullDirectoryPath = allocateArenaMemory(temporaryDataAllocator_g, 300);
     realpath(directoryPath, fullDirectoryPath);
     tdk_set256Color(tdk_Color_Yellow, tdk_Layer_Foreground);
-    printf("󰝰 ");
+    if (isOutTTY_g)
+    {
+        printf("󰝰 ");
+    }
     tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
     tdk_setWeight(tdk_Weight_Bold);
     printf("%s:\n", fullDirectoryPath);
