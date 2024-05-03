@@ -265,13 +265,15 @@ static void readDirectory(const char *directoryPath)
     tdk_setWeight(tdk_Weight_Default);
     temporaryDataAllocator_g->use = 0;
     printf("%*s %-*s %-*s %-*s %*s %-*s Name\n", noColumnLength, "No.", groupColumnLength, "Group", userColumnLength,
-           "User", 17, "Modified Date", sizeColumnLength, "Size", 13, "Permissions");
-    writeLines(7, noColumnLength, groupColumnLength, userColumnLength, 17, sizeColumnLength, 13, nameColumnLength);
+           "User", entriesAllocator_g->use ? 17 : 13, "Modified Date", sizeColumnLength, "Size",
+           entriesAllocator_g->use ? 13 : 11, "Permissions");
+    writeLines(7, noColumnLength, groupColumnLength, userColumnLength, entriesAllocator_g->use ? 17 : 13,
+               sizeColumnLength, entriesAllocator_g->use ? 13 : 11, nameColumnLength);
     if (!entriesAllocator_g->use)
     {
         tdk_set256Color(tdk_Color_LightBlack, tdk_Layer_Foreground);
         printf("%*s\n",
-               17 + noColumnLength + groupColumnLength + userColumnLength + sizeColumnLength + nameColumnLength,
+               14 + noColumnLength + groupColumnLength + userColumnLength + sizeColumnLength + nameColumnLength,
                "DIRECTORY IS EMPTY");
         tdk_set256Color(tdk_Color_Default, tdk_Layer_Foreground);
     }
