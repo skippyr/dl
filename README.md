@@ -1,14 +1,14 @@
 <p align="center">
-	<img alt="" src="assets/ornament.webp" />
+    <img alt="" src="assets/ornament.webp" />
 </p>
 <h1 align="center">≥v≥v&ensp;dl&ensp;≥v≥v</h1>
 <p align="center">
-	<img alt="" src="https://img.shields.io/github/license/skippyr/dl?style=plastic&label=%E2%89%A5%20license&labelColor=%2324130e&color=%23b8150d" />
-	&nbsp;
-	<img alt="" src="https://img.shields.io/github/v/tag/skippyr/dl?style=plastic&label=%E2%89%A5%20tag&labelColor=%2324130e&color=%23b8150d" />
-	&nbsp;
-	<img alt="" src="https://img.shields.io/github/commit-activity/t/skippyr/dl?style=plastic&label=%E2%89%A5%20commits&labelColor=%2324130e&color=%23b8150d" />
-	&nbsp;
+    <img alt="" src="https://img.shields.io/github/license/skippyr/dl?style=plastic&label=%E2%89%A5%20license&labelColor=%2324130e&color=%23b8150d" />
+    &nbsp;
+    <img alt="" src="https://img.shields.io/github/v/tag/skippyr/dl?style=plastic&label=%E2%89%A5%20tag&labelColor=%2324130e&color=%23b8150d" />
+    &nbsp;
+    <img alt="" src="https://img.shields.io/github/commit-activity/t/skippyr/dl?style=plastic&label=%E2%89%A5%20commits&labelColor=%2324130e&color=%23b8150d" />
+    &nbsp;
 	<img alt="" src="https://img.shields.io/github/stars/skippyr/dl?style=plastic&label=%E2%89%A5%20stars&labelColor=%2324130e&color=%23b8150d" />
 </p>
 
@@ -17,7 +17,7 @@
 A simple directory listing utility for Linux.
 
 <p align="center">
-	<img alt="" src="assets/preview.webp" />
+    <img alt="" src="assets/preview.webp" />
 </p>
 <p align="center"><sup><strong>Caption:</strong> a preview of <code>dl</code> running on a terminal. The terminal theme used is <a href="https://github.com/skippyr/flamerial">flamerial</a> and font is <a href="https://github.com/be5invis/Iosevka">iosevka ss08</a>.</sup></p>
 
