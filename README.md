@@ -19,7 +19,7 @@ A simple directory listing utility for Linux.
 <p align="center">
     <img alt="" src="assets/preview.webp" />
 </p>
-<p align="center"><sup><strong>Caption:</strong> a preview of <code>dl</code> running on a terminal. The terminal theme used is <a href="https://github.com/skippyr/flamerial">flamerial</a> and font is <a href="https://github.com/be5invis/Iosevka">iosevka ss08</a>.</sup></p>
+<p align="center"><sup><strong>Caption:</strong> a preview of <code>dl</code> running on a terminal. The terminal theme used is <a href="https://github.com/skippyr/flamerial">flamerial</a> and font is <a href="https://www.nerdfonts.com/font-downloads">firacode nerd font</a>.</sup></p>
 
 ## ❡ Install
 
@@ -29,6 +29,7 @@ The following dependencies must be installed before installing it:
 
 - **git**: it will be used to clone this repository.
 - **gcc**, **make**: they will be used to compile this software.
+- **Noto Sans**, [**Nerd Font Symbols**](https://www.nerdfonts.com/font-downloads): these fonts provide the pretty symbols used in the software.
 - [**libtdk**](https://github.com/skippyr/libtdk): it is a library required as dependency.
 
 ### Procedures
