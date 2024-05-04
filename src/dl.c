@@ -415,8 +415,7 @@ static void writeLines(int totalLines, ...)
     va_start(arguments, totalLines);
     int lastOffsett = totalLines - 1;
     for (int offset = 0; offset < totalLines; ++offset) {
-        int length;
-        for (length = va_arg(arguments, int); length; --length) {
+        for (int length = va_arg(arguments, int); length; --length) {
             putchar('-');
         }
         if (offset < lastOffsett) {
