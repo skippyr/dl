@@ -8,7 +8,7 @@ static struct ArenaAllocator *entriesAllocator_g = NULL;
 static struct ArenaAllocator *entriesDataAllocator_g = NULL;
 static struct ArenaAllocator *temporaryDataAllocator_g = NULL;
 static char *buffer_g = NULL;
-int isOutTTY_g = 0;
+static int isOutTTY_g = 0;
 
 static void allocateArenaAllocator(struct ArenaAllocator **allocator, const char *name,
                                    size_t unit, size_t capacity)
@@ -366,7 +366,7 @@ static void writeEntryNo(int no, int align)
     sprintf(buffer, "%d", no);
     int length = strlen(buffer);
     int leftPadding = align - length - (length >= 4);
-    for (int offset = 0; offset < leftPadding; ++offset) {
+    for (int spacing = 0; spacing < leftPadding; ++spacing) {
         putchar(' ');
     }
     for (int separatorOffset = length - 3, offset = 0; offset < length; ++offset) {
