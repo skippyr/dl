@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.20)
+project(dl)
+add_subdirectory("${CMAKE_SOURCE_DIR}/libs/libtmk" "${CMAKE_BINARY_DIR}/libtmk")
+add_executable(dl "${CMAKE_SOURCE_DIR}/src/dl.c" "${CMAKE_SOURCE_DIR}/src/dl.h")
+target_include_directories(dl PRIVATE "${CMAKE_SOURCE_DIR}/src")
+target_link_libraries(dl tmk)
+install(TARGETS dl DESTINATION "${CMAKE_SOURCE_DIR}/bin")
