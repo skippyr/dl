@@ -876,6 +876,9 @@ end_l:
 #endif
   tmk_freeCMDArguments(&cmdArguments);
 #if defined(_WIN32)
+  if (securityDescriptorBuffer_g) {
+    free(securityDescriptorBuffer_g);
+  }
   freeArenaAllocator(temporaryWideDataAllocator_g);
   freeArenaAllocator(credentialsAllocator_g);
   freeArenaAllocator(credentialsDataAllocator_g);
