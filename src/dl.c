@@ -21,11 +21,19 @@ static void debugArenaAllocator(struct ArenaAllocator *allocator) {
   if (!allocator) {
     return;
   }
-  tmk_writeLine("::     Name: %s.", allocator->name);
-  tmk_writeLine("::   Buffer: %p.", allocator->buffer);
-  tmk_writeLine("::      Use: %zu.", allocator->use);
-  tmk_writeLine(":: Capacity: %zu.", allocator->capacity);
-  tmk_writeLine("::     Unit: %zu.", allocator->unit);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write(":: ");
+  tmk_resetFontColors();
+  tmk_write("Allocator ");
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_write("%s", allocator->name);
+  tmk_resetFontWeight();
+  tmk_writeLine(":");
+  tmk_writeLine("      Buffer: %p -> %p.", allocator->buffer,
+                allocator->buffer + allocator->capacity * allocator->unit);
+  tmk_writeLine("         Use: %zu.", allocator->use);
+  tmk_writeLine("    Capacity: %zu.", allocator->capacity);
+  tmk_writeLine("        Unit: %zu.", allocator->unit);
 }
 #endif
 
@@ -356,6 +364,7 @@ static void readDirectory(const char *directoryPath) {
     } else {
       entry->link = NULL;
     }
+    freeArenaMemory(temporaryDataAllocator_g, entryPathSize);
     size_t sizeLength;
     entry->size =
         formatSize(&sizeLength, entryStat.st_size, S_ISDIR(entryStat.st_mode));
@@ -372,7 +381,6 @@ static void readDirectory(const char *directoryPath) {
       SAVE_GREATER(groupColumnLength, entry->group->name.length);
     }
     SAVE_GREATER(sizeColumnLength, sizeLength);
-    resetArenaAllocator(temporaryDataAllocator_g);
   }
   closedir(directoryStream);
   int totalDigitsForIndex = countDigits(entriesAllocator_g->use);
@@ -387,7 +395,7 @@ static void readDirectory(const char *directoryPath) {
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("%s:", directoryFullPath);
   tmk_resetFontWeight();
-  resetArenaAllocator(temporaryDataAllocator_g);
+  freeArenaMemory(temporaryDataAllocator_g, 256);
   qsort(entriesAllocator_g->buffer, entriesAllocator_g->use,
         sizeof(struct Entry), sortEntriesAlphabetically);
   tmk_setFontWeight(tmk_FontWeight_Bold);
@@ -428,7 +436,7 @@ static void readDirectory(const char *directoryPath) {
         localModifiedTime->tm_year + 1900, &modifiedDateSize);
     tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
     tmk_write("%s ", modifiedDate);
-    resetArenaAllocator(temporaryDataAllocator_g);
+    freeArenaMemory(temporaryDataAllocator_g, modifiedDateSize);
     tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_FontLayer_Foreground);
     tmk_write("%02d:%02d ", localModifiedTime->tm_hour,
               localModifiedTime->tm_min);
@@ -860,6 +868,8 @@ int main(int totalRawCMDArguments, const char **rawCMDArguments) {
   }
 end_l:
 #if DEBUG
+  tmk_writeLine("");
+  tmk_writeLine("Running in debug mode...");
 #if defined(_WIN32)
   debugArenaAllocator(temporaryWideDataAllocator_g);
   debugArenaAllocator(credentialsAllocator_g);
