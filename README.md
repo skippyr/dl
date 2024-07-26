@@ -72,12 +72,12 @@ cd dl
 - Use `cmake` to build and install it:
 
 ```zsh
-cmake -B build
-cmake --build build --config release
-cmake --install build
+cmake -B build/cmake
+cmake --build build/cmake --config release
+cmake --install build/cmake
 ```
 
-- Add the directory `bin` to your system `PATH` environment variable.
+- Add the directory `build/bin` to your system `PATH` environment variable.
 - Reload your shell session.
 - `dl` should now be installed and available as a command.
 

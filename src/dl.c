@@ -86,6 +86,9 @@ static struct Credential *findCredential(const wchar_t *utf16DirectoryPath,
   SID_NAME_USE use;
   LookupAccountSidW(NULL, sid, NULL, &utf16UserSize, NULL, &utf16DomainSize,
                     &use);
+  if (!utf16UserSize || !utf16DomainSize) {
+    return NULL;
+  }
   wchar_t *utf16User =
       allocateArenaMemory(temporaryWideDataAllocator_g, utf16UserSize);
   wchar_t *utf16Domain =
@@ -101,6 +104,11 @@ static struct Credential *findCredential(const wchar_t *utf16DirectoryPath,
       credentialsDataAllocator_g, utf16User, &credential->user.length);
   credential->domain.buffer = convertArenaUTF16ToUTF8(
       credentialsDataAllocator_g, utf16Domain, &credential->domain.length);
+  /*
+   * The LookupAccountSidW function always silently removes one unit from each
+   * size address given in a successful call. That need to be compensated in
+   * this freeArenaMemory call by adding 2.
+   */
   freeArenaMemory(temporaryWideDataAllocator_g,
                   utf16UserSize + utf16DomainSize + 2);
   return credential;
