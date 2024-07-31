@@ -29,11 +29,11 @@ static void debugArenaAllocator(struct ArenaAllocator *allocator) {
   tmk_write("%s", allocator->name);
   tmk_resetFontWeight();
   tmk_writeLine(":");
-  tmk_writeLine("      Buffer: %p -> %p.", allocator->buffer,
+  tmk_writeLine("    Buffer: %p -> %p.", allocator->buffer,
                 allocator->buffer + allocator->capacity * allocator->unit);
-  tmk_writeLine("         Use: %zu.", allocator->use);
-  tmk_writeLine("    Capacity: %zu.", allocator->capacity);
-  tmk_writeLine("        Unit: %zu.", allocator->unit);
+  tmk_writeLine("       Use: %zu.", allocator->use);
+  tmk_writeLine("  Capacity: %zu.", allocator->capacity);
+  tmk_writeLine("      Unit: %zu.", allocator->unit);
 }
 #endif
 
@@ -639,7 +639,7 @@ static void writeHelp(void) {
   tmk_writeLine("");
   tmk_writeLine("For each entry, it shows:");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    * ");
+  tmk_write("  * ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its domain and user.");
@@ -647,43 +647,43 @@ static void writeHelp(void) {
   tmk_writeLine("Its group and user.");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    * ");
+  tmk_write("  * ");
   tmk_resetFontColors();
   tmk_writeLine("Its last modified date.");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    * ");
+  tmk_write("  * ");
   tmk_resetFontColors();
   tmk_writeLine(
       "Its size in a human-readable unit: terabyte (TB), gigabyte (GB),");
-  tmk_writeLine("      megabyte (MB), kilobyte (kB) or byte (B).");
+  tmk_writeLine("    megabyte (MB), kilobyte (kB) or byte (B).");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    * ");
+  tmk_write("  * ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its attributes: hidden (h), archive (a), read-only (r), "
                 "temporary (t) and");
-  tmk_writeLine("      reparse point (l).");
+  tmk_writeLine("    reparse point (l).");
 #else
   tmk_writeLine("Its read (r), write (w), execute (x) and lack (-) permissions "
                 "for user,");
-  tmk_writeLine("      group and others, respectively, and its representation "
+  tmk_writeLine("    group and others, respectively, and its representation "
                 "in octal base.");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    * ");
+  tmk_write("  * ");
   tmk_resetFontColors();
   tmk_writeLine("An icon or, in case of the terminal output stream is "
                 "redirected, a letter");
-  tmk_write("      representing its type: ");
+  tmk_write("    representing its type: ");
 #if defined(_WIN32)
   tmk_writeLine("directory (d) or file (-).");
 #else
   tmk_writeLine("directory (d), symlink (l), block device (d),");
   tmk_writeLine(
-      "      character device (c), fifo (f), socket (s) or regular (-).");
+      "    character device (c), fifo (f), socket (s) or regular (-).");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    * ");
+  tmk_write("  * ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its name.");
@@ -696,11 +696,11 @@ static void writeHelp(void) {
   tmk_writeLine("AVAILABLE OPTIONS");
   tmk_resetFontWeight();
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("       --help  ");
+  tmk_write("     --help  ");
   tmk_resetFontColors();
   tmk_writeLine("shows these usage instructions.");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("    --version  ");
+  tmk_write("  --version  ");
   tmk_resetFontColors();
   tmk_writeLine("shows its version.");
   tmk_writeLine("");
