@@ -15,7 +15,7 @@
 
 ## ❡ About
 
-A simple directory listing utility available for Windows, Linux and MacOS.
+An enhanced directory listing utility for Windows, Linux and MacOS.
 
 <p align="center">
   <img alt="" src="assets/preview-macos.png" width=1020 />
@@ -31,13 +31,13 @@ The following dependencies must be installed before it:
 
 #### Dependencies For Windows
 
-- [**Visual Studio 2022**](https://visualstudio.microsoft.com): it provides all the tools required to build this library.
+- [**Visual Studio 2022**](https://visualstudio.microsoft.com): it provides all the tools required to build this sofware.
 - [**git**](https://git-scm.com): it will be used to clone this repository.
 - **A font patched by the [Nerd Fonts project](https://www.nerdfonts.com/font-downloads)**: it provides the pretty symbols used by the software.
 
 #### Dependencies For Linux
 
-- **gcc**, **cmake**: they will be used to build this library.
+- **gcc**, **cmake**: they will be used to build this sofware.
 - **git**: it will be used to clone this repository.
 - **A font patched by the Nerd Fonts project**: it provides the pretty symbols used by the software.
 
@@ -46,7 +46,7 @@ The following dependencies must be installed before it:
 
 #### Dependencies For MacOS
 
-- **Apple Command Line Tools**, **cmake**: they will be used to build this library.
+- **Apple Command Line Tools**, **cmake**: they will be used to build this sofware.
 - **git**: it will be used to clone this repository.
 - **A font patched by the Nerd Fonts project**: it provides the pretty symbols used by the software.
 
@@ -60,21 +60,21 @@ On Windows, using the `Developer PowerShell for VS 2022` profile or, on any othe
 - Clone this repository using `git`:
 
 ```zsh
-git clone --depth 1 --recurse-submodules https://github.com/skippyr/dl
+git clone --depth 1 --recurse-submodules https://github.com/skippyr/dl;
 ```
 
 - Access its directory:
 
 ```zsh
-cd dl
+cd dl;
 ```
 
 - Use `cmake` to build and install it:
 
 ```zsh
-cmake -B build/cmake
-cmake --build build/cmake --config release
-cmake --install build/cmake
+cmake -B build/cmake;
+cmake --build build/cmake --config release;
+cmake --install build/cmake;
 ```
 
 - Add the directory `build/bin` to your system `PATH` environment variable.
