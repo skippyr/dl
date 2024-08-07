@@ -1,6 +1,6 @@
 #include "dl.h"
 
-#if defined(_WIN32)
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
 static char *securityDescriptorBuffer_g = NULL;
 static struct ArenaAllocator *temporaryWideDataAllocator_g = NULL;
 static struct ArenaAllocator *credentialsAllocator_g = NULL;
@@ -37,7 +37,7 @@ static void debugArenaAllocator(struct ArenaAllocator *allocator) {
 }
 #endif
 
-#if defined(_WIN32)
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
 static char *convertArenaUTF16ToUTF8(struct ArenaAllocator *allocator,
                                      const wchar_t *utf16String,
                                      size_t *utf8StringLength) {
@@ -639,7 +639,7 @@ static void writeHelp(void) {
   tmk_writeLine("");
   tmk_writeLine("For each entry, it shows:");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  * ");
+  tmk_write("  • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its domain and user.");
@@ -647,17 +647,17 @@ static void writeHelp(void) {
   tmk_writeLine("Its group and user.");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  * ");
+  tmk_write("  • ");
   tmk_resetFontColors();
   tmk_writeLine("Its last modified date.");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  * ");
+  tmk_write("  • ");
   tmk_resetFontColors();
   tmk_writeLine(
       "Its size in a human-readable unit: terabyte (TB), gigabyte (GB),");
   tmk_writeLine("    megabyte (MB), kilobyte (kB) or byte (B).");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  * ");
+  tmk_write("  • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its attributes: hidden (h), archive (a), read-only (r), "
@@ -670,7 +670,7 @@ static void writeHelp(void) {
                 "in octal base.");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  * ");
+  tmk_write("  • ");
   tmk_resetFontColors();
   tmk_writeLine("An icon or, in case of the terminal output stream is "
                 "redirected, a letter");
@@ -683,7 +683,7 @@ static void writeHelp(void) {
       "    character device (c), fifo (f), socket (s) or regular (-).");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  * ");
+  tmk_write("  • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its name.");
@@ -693,7 +693,7 @@ static void writeHelp(void) {
 #endif
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("AVAILABLE OPTIONS");
+  tmk_writeLine("❡ Available Options");
   tmk_resetFontWeight();
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_write("     --help  ");
@@ -705,9 +705,9 @@ static void writeHelp(void) {
   tmk_writeLine("shows its version.");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("SOURCE CODE");
+  tmk_writeLine("❡ Homepage");
   tmk_resetFontWeight();
-  tmk_write("Its source is available at <");
+  tmk_write("Its homepage is available at <");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_write("https://github.com/skippyr/dl");
@@ -716,7 +716,7 @@ static void writeHelp(void) {
   tmk_writeLine(">.");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("HELP");
+  tmk_writeLine("❡ Help");
   tmk_resetFontWeight();
   tmk_writeLine("If you need help related to this project, open a new issue in "
                 "its issues");
@@ -736,7 +736,32 @@ static void writeHelp(void) {
   tmk_writeLine(") describing what is going on.");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("CONTRIBUTING");
+  tmk_writeLine("❡ Privacy");
+  tmk_resetFontWeight();
+  tmk_writeLine("This software does not collect, store or share any user data. "
+                "It only gathers");
+  tmk_writeLine("the minimal information needed for its functionality, and "
+                "this data is discarded");
+  tmk_writeLine("once its execution is over. Its source code is available for "
+                "reviews. If you");
+  tmk_writeLine("have any questions about it, open a new issue in its issues");
+  tmk_write("page (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontEffects(tmk_FontEffect_Underline);
+  tmk_write("https://github.com/skippyr/river-dreams/issues");
+  tmk_resetFontColors();
+  tmk_resetFontEffects();
+  tmk_writeLine(") or send me an");
+  tmk_write("e-mail (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontEffects(tmk_FontEffect_Underline);
+  tmk_write("mailto:skippyr.developer@icloud.com");
+  tmk_resetFontColors();
+  tmk_resetFontEffects();
+  tmk_writeLine(") describing what is going on.");
+  tmk_writeLine("");
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_writeLine("❡ Contributing");
   tmk_resetFontWeight();
   tmk_writeLine("This project is open to review and possibly accept "
                 "contributions, specially");
@@ -758,7 +783,7 @@ static void writeHelp(void) {
   tmk_writeLine(").");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("LICENSE");
+  tmk_writeLine("❡ License");
   tmk_resetFontWeight();
   tmk_writeLine("This is free software licensed under the BSD-3-Clause License "
                 "that comes WITH");
@@ -768,13 +793,14 @@ static void writeHelp(void) {
 }
 
 static void writeVersion(void) {
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_write("dl ");
   tmk_resetFontColors();
   tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
   tmk_write("%s ", PROGRAM_VERSION);
   tmk_resetFontColors();
-  tmk_writeLine("compiled for %s %s.", PROGRAM_PLATFORM, PROGRAM_ARCHITECTURE);
+  tmk_writeLine("compiled for %s %s.", tmk_OPERATING_SYSTEM,
+                tmk_CPU_ARCHITECTURE);
   tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
   tmk_write("Copyright (c) 2024, Sherman Rofeman <");
   tmk_setFontEffects(tmk_FontEffect_Underline);

@@ -1,4 +1,8 @@
-#if defined(_WIN32)
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <tmk.h>
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
 #include <Windows.h>
 #else
 #include <dirent.h>
@@ -7,47 +11,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
-#include <tmk.h>
 
-#if defined(_WIN32)
-#define PROGRAM_PLATFORM "Windows"
-#if defined(_M_ARM)
-#define PROGRAM_ARCHITECTURE "ARM32"
-#elif defined(_M_ARM64)
-#define PROGRAM_ARCHITECTURE "ARM64"
-#elif defined(_WIN64)
-#define PROGRAM_ARCHITECTURE "x86_64"
-#else
-#define PROGRAM_ARCHITECTURE "x86"
-#endif
-#else
-#if defined(__linux__)
-#define PROGRAM_PLATFORM "Linux"
-#elif defined(__APPLE__)
-#define PROGRAM_PLATFORM "MacOS"
-#else
-#define PROGRAM_PLATFORM "Unknown Platform"
-#define PROGRAM_ARCHITECTURE "Unknown Architecture"
-#endif
-#if defined(__linux__) || defined(__APPLE__)
-#if defined(__arm__)
-#define PROGRAM_ARCHITECTURE "ARM32"
-#elif defined(__aarch64__)
-#if defined(__APPLE__)
-#define PROGRAM_ARCHITECTURE "ARM64 (Apple Sillicon)"
-#else
-#define PROGRAM_ARCHITECTURE "ARM64"
-#endif
-#elif defined(__x86_64__)
-#define PROGRAM_ARCHITECTURE "x86_64"
-#elif defined(__i386__)
-#define PROGRAM_ARCHITECTURE "x86"
-#endif
-#endif
-#endif
 #define PARSE_MODE(mode_a, character_a, color_a)                               \
   if (entry.mode & mode_a) {                                                   \
     tmk_setFontANSIColor(color_a, tmk_FontLayer_Foreground);                   \
@@ -61,8 +25,8 @@
     return 0;                                                                  \
   }
 #define PROGRAM_NAME "dl"
-#define PROGRAM_VERSION "v3.0.0"
-#define DEBUG 0
+#define PROGRAM_VERSION "v3.0.1"
+#define DEBUG false
 #define SAVE_GREATER(buffer_a, value_a)                                        \
   if (value_a > buffer_a) {                                                    \
     buffer_a = value_a;                                                        \
