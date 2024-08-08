@@ -16,7 +16,7 @@ static struct ArenaAllocator *entriesDataAllocator_g = NULL;
 static struct ArenaAllocator *temporaryDataAllocator_g = NULL;
 static int exitCode_g = 0;
 
-#if defined(DEBUG)
+#if DEBUG
 static void debugArenaAllocator(struct ArenaAllocator *allocator) {
   if (!allocator) {
     return;
