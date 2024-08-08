@@ -15,7 +15,7 @@
 
 ## ❡ About
 
-An enhanced directory listing utility available for Windows, Linux and MacOS. It includes new features such as a new data layout, colors and icons, improving usability and readability.
+An enhanced directory listing utility available for Windows, Linux and MacOS. It includes new features such as a new layout, colors and icons, improving usability and readability.
 
 <p align="center">
   <img alt="" src="assets/preview-macos.png" width=1020 />
