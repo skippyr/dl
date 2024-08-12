@@ -96,10 +96,6 @@ dl --help
 
 If you need help related to this project, open a new issue in its [issues page](https://github.com/skippyr/dl/issues) or send me an [e-mail](mailto:skippyr.developer@icloud.com) describing what is going on.
 
-## ❡ Privacy
-
-This software does not collect, store or share any user data. It only gathers the minimal information needed for its functionality, and this data is discarded once its execution is over. Its source code is available for reviews. If you have any questions about it, open a new issue in its [issues page](https://github.com/skippyr/dl/issues) or send me an [e-mail](mailto:skippyr.developer@icloud.com) describing what is going on.
-
 ## ❡ Contributing
 
 This project is open to review and possibly accept contributions, specially fixes and suggestions. If you are interested, send your contribution to its [pull requests page](https://github.com/skippyr/dl/pulls) or to my [e-mail](mailto:skippyr.developer@icloud.com).
