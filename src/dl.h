@@ -107,8 +107,8 @@ static int countDigits(size_t number);
 static void writeErrorArguments(const char *format, va_list arguments);
 static void writeError(const char *format, ...);
 static void throwError(const char *format, ...);
-static void writeHelp(void);
-static void writeVersion(void);
+static void writeHelpPage(void);
+static void writeVersionPage(void);
 static void *allocateHeapMemory(size_t totalBytes);
 static void createArenaAllocator(const char *name, size_t unit, size_t capacity,
                                  struct ArenaAllocator **allocator);

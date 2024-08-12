@@ -615,31 +615,31 @@ static void throwError(const char *format, ...) {
   exit(1);
 }
 
-static void writeHelp(void) {
+static void writeHelpPage(void) {
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_write("Usage: ");
+  tmk_writeLine("❡ Usage");
   tmk_resetFontWeight();
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("%s ", PROGRAM_NAME);
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_write("    %s ", PROGRAM_NAME);
+  tmk_resetFontWeight();
   tmk_resetFontColors();
   tmk_write("[");
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("PATH");
+  tmk_write("OPTION");
   tmk_resetFontEffects();
   tmk_write(" | ");
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("OPTION");
+  tmk_write("PATH");
   tmk_resetFontEffects();
   tmk_writeLine("]...");
-  tmk_writeLine("Directory Lister - List the entries inside of directories "
-                "given their paths.");
+  tmk_writeLine("    List the entries inside directories given their paths.");
   tmk_writeLine("");
   tmk_writeLine(
-      "If no path is given, it considers the current active directory.");
+      "    If no path is given, it considers the current active directory.");
   tmk_writeLine("");
-  tmk_writeLine("For each entry, it shows:");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  • ");
+  tmk_write("    • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its domain and user.");
@@ -647,43 +647,43 @@ static void writeHelp(void) {
   tmk_writeLine("Its group and user.");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  • ");
+  tmk_write("    • ");
   tmk_resetFontColors();
   tmk_writeLine("Its last modified date.");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  • ");
+  tmk_write("    • ");
   tmk_resetFontColors();
   tmk_writeLine(
       "Its size in a human-readable unit: terabyte (TB), gigabyte (GB),");
-  tmk_writeLine("    megabyte (MB), kilobyte (kB) or byte (B).");
+  tmk_writeLine("      megabyte (MB), kilobyte (kB) or byte (B).");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  • ");
+  tmk_write("    • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its attributes: hidden (h), archive (a), read-only (r), "
                 "temporary (t) and");
-  tmk_writeLine("    reparse point (l).");
+  tmk_writeLine("      reparse point (l).");
 #else
   tmk_writeLine("Its read (r), write (w), execute (x) and lack (-) permissions "
                 "for user,");
-  tmk_writeLine("    group and others, respectively, and its representation "
+  tmk_writeLine("      group and others, respectively, and its representation "
                 "in octal base.");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  • ");
+  tmk_write("    • ");
   tmk_resetFontColors();
   tmk_writeLine("An icon or, in case of the terminal output stream is "
                 "redirected, a letter");
-  tmk_write("    representing its type: ");
+  tmk_write("      representing its type: ");
 #if defined(_WIN32)
   tmk_writeLine("directory (d) or file (-).");
 #else
   tmk_writeLine("directory (d), symlink (l), block device (d),");
   tmk_writeLine(
-      "    character device (c), fifo (f), socket (s) or regular (-).");
+      "      character device (c), fifo (f), socket (s) or regular (-).");
 #endif
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  • ");
+  tmk_write("    • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
   tmk_writeLine("Its name.");
@@ -696,105 +696,128 @@ static void writeHelp(void) {
   tmk_writeLine("❡ Available Options");
   tmk_resetFontWeight();
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("     --help  ");
+  tmk_write("    • ");
   tmk_resetFontColors();
-  tmk_writeLine("shows these usage instructions.");
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_write("--help: ");
+  tmk_resetFontWeight();
+  tmk_writeLine("writes these help instructions.");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("  --version  ");
+  tmk_write("    • ");
   tmk_resetFontColors();
-  tmk_writeLine("shows its version.");
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_write("--version: ");
+  tmk_resetFontWeight();
+  tmk_writeLine("writes its version and platform.");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("❡ Homepage");
   tmk_resetFontWeight();
-  tmk_write("Its homepage is available at <");
+  tmk_write("    Its homepage is available on GitHub (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("*");
+  tmk_resetFontColors();
+  tmk_writeLine("1).");
+  tmk_writeLine("");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("    • *");
+  tmk_resetFontColors();
+  tmk_write("1: ");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("https://github.com/skippyr/dl");
+  tmk_writeLine("https://github.com/skippyr/dl");
   tmk_resetFontEffects();
   tmk_resetFontColors();
-  tmk_writeLine(">.");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("❡ Help");
   tmk_resetFontWeight();
-  tmk_writeLine("If you need help related to this project, open a new issue in "
-                "its issues");
-  tmk_write("page (");
+  tmk_writeLine("    If you need help related to this project, open a new "
+                "issue in its issues");
+  tmk_write("    page (");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("https://github.com/skippyr/dl/issues");
-  tmk_resetFontEffects();
+  tmk_write("*");
   tmk_resetFontColors();
-  tmk_writeLine(") or send me an");
-  tmk_write("e-mail (");
+  tmk_write("1) or send me an e-mail (");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("mailto:skippyr.developer@icloud.com");
-  tmk_resetFontEffects();
+  tmk_write("*");
   tmk_resetFontColors();
-  tmk_writeLine(") describing what is going on.");
+  tmk_writeLine("2) describing what is going on.");
   tmk_writeLine("");
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ Privacy");
-  tmk_resetFontWeight();
-  tmk_writeLine("This software does not collect, store or share any user data. "
-                "It only gathers");
-  tmk_writeLine("the minimal information needed for its functionality, and "
-                "this data is discarded");
-  tmk_writeLine("once its execution is over. Its source code is available for "
-                "reviews. If you");
-  tmk_writeLine("have any questions about it, open a new issue in its issues");
-  tmk_write("page (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("    • *");
+  tmk_resetFontColors();
+  tmk_write("1: ");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("https://github.com/skippyr/river-dreams/issues");
-  tmk_resetFontColors();
+  tmk_writeLine("https://github.com/skippyr/dl/issues");
   tmk_resetFontEffects();
-  tmk_writeLine(") or send me an");
-  tmk_write("e-mail (");
+  tmk_resetFontColors();
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("    • *");
+  tmk_resetFontColors();
+  tmk_write("2: ");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("mailto:skippyr.developer@icloud.com");
-  tmk_resetFontColors();
+  tmk_writeLine("skippyr.developer@icloud.com");
   tmk_resetFontEffects();
-  tmk_writeLine(") describing what is going on.");
+  tmk_resetFontColors();
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("❡ Contributing");
   tmk_resetFontWeight();
-  tmk_writeLine("This project is open to review and possibly accept "
+  tmk_writeLine("    This project is open to review and possibly accept "
                 "contributions, specially");
-  tmk_writeLine("fixes and suggestions. If you are interested, send your "
-                "contribution to its pull");
-  tmk_write("requests page (");
+  tmk_writeLine("    fixes and suggestions. If you are interested, send your "
+                "contribution to its");
+  tmk_write("    pull requests page (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("*");
+  tmk_resetFontColors();
+  tmk_write("1) or to my e-mail (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("*");
+  tmk_resetFontColors();
+  tmk_writeLine("2).");
+  tmk_writeLine("");
+  tmk_writeLine("    By contributing to this project, you agree to license "
+                "your work under the");
+  tmk_writeLine("    same license that the project uses.");
+  tmk_writeLine("");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("    • *");
+  tmk_resetFontColors();
+  tmk_write("1: ");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("https://github.com/skippyr/dl/pulls");
+  tmk_writeLine("https://github.com/skippyr/dl/pulls");
   tmk_resetFontEffects();
   tmk_resetFontColors();
-  tmk_writeLine(") or to my");
-  tmk_write("e-mail (");
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_write("    • *");
+  tmk_resetFontColors();
+  tmk_write("2: ");
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("mailto:skippyr.developer@icloud.com");
+  tmk_writeLine("skippyr.developer@icloud.com");
   tmk_resetFontEffects();
   tmk_resetFontColors();
-  tmk_writeLine(").");
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("❡ License");
   tmk_resetFontWeight();
-  tmk_writeLine("This is free software licensed under the BSD-3-Clause License "
-                "that comes WITH");
-  tmk_writeLine("NO WARRANTY. Refer to the LICENSE file that comes in its "
-                "source code for license");
-  tmk_writeLine("and copyright details.");
+  tmk_writeLine("    This is free software licensed under the BSD-3-Clause "
+                "License that comes");
+  tmk_writeLine("    WITH NO WARRANTY. Refer to the LICENSE file that comes in "
+                "its source code");
+  tmk_writeLine("    for license and copyright details.");
 }
 
-static void writeVersion(void) {
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
-  tmk_write("dl ");
+static void writeVersionPage(void) {
+   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_write("%s ", PROGRAM_NAME);
+  tmk_resetFontWeight();
   tmk_resetFontColors();
   tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
   tmk_write("%s ", PROGRAM_VERSION);
@@ -808,6 +831,13 @@ static void writeVersion(void) {
   tmk_resetFontEffects();
   tmk_writeLine(">");
   tmk_resetFontColors();
+  tmk_writeLine("");
+  for (int color = 1; color < 16; ++color) {
+    tmk_setFontANSIColor(color, tmk_FontLayer_Background);
+    tmk_write("   ");
+  }
+  tmk_resetFontColors();
+  tmk_writeLine("");
 }
 
 static void *allocateHeapMemory(size_t totalBytes) {
@@ -883,8 +913,8 @@ int main(int totalRawCMDArguments, const char **rawCMDArguments) {
     goto end_l;
   }
   for (int offset = 1; offset < cmdArguments.totalArguments; ++offset) {
-    PARSE_OPTION("help", writeHelp());
-    PARSE_OPTION("version", writeVersion());
+    PARSE_OPTION("help", writeHelpPage());
+    PARSE_OPTION("version", writeVersionPage());
   }
   for (int offset = 1; offset < cmdArguments.totalArguments; ++offset) {
     if (cmdArguments.utf8Arguments[offset][0] == '-' &&
