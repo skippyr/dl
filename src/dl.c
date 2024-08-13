@@ -591,7 +591,9 @@ static void writeErrorArguments(const char *format, va_list arguments) {
   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
   tmk_writeError("[ERROR] ");
   tmk_resetFontColors();
+  tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeError("dl");
+  tmk_resetFontWeight();
   tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
   tmk_writeError(" (code 1)");
   tmk_resetFontColors();
