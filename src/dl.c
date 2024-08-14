@@ -21,7 +21,7 @@ static void debugArenaAllocator(struct ArenaAllocator *allocator) {
   if (!allocator) {
     return;
   }
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write(":: ");
   tmk_resetFontColors();
   tmk_write("Allocator ");
@@ -182,7 +182,7 @@ static void readDirectory(const char *utf8DirectoryPath,
   SAVE_GREATER(indexColumnLength, totalDigitsForIndex);
   qsort(entriesAllocator_g->buffer, entriesAllocator_g->use,
         sizeof(struct Entry), sortEntriesAlphabetically);
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
   if (!tmk_isStreamRedirected(tmk_Stream_Output)) {
     tmk_write(" ");
   }
@@ -219,7 +219,7 @@ static void readDirectory(const char *utf8DirectoryPath,
   writeLines(7, indexColumnLength, domainColumnLength, userColumnLength, 17,
              sizeColumnLength, 5, 20);
   if (!entriesAllocator_g->use) {
-    tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
     tmk_writeLine("%*s",
                   23 + indexColumnLength + domainColumnLength +
                       userColumnLength + sizeColumnLength,
@@ -230,14 +230,14 @@ static void readDirectory(const char *utf8DirectoryPath,
     struct Entry entry = *((struct Entry *)entriesAllocator_g->buffer + index);
     tmk_write("%*zu ", indexColumnLength, index + 1);
     if (entry.credential) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%-*s ", domainColumnLength, entry.credential->domain.buffer);
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_Layer_Foreground);
       tmk_write("%-*s ", userColumnLength, entry.credential->user.buffer);
     } else {
       tmk_write("%-*c %-*c ", domainColumnLength, '-', userColumnLength, '-');
     }
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
     SYSTEMTIME localModifiedTime;
     FileTimeToSystemTime(&entry.modifiedTime, &localModifiedTime);
     size_t modifiedDateSize;
@@ -246,10 +246,10 @@ static void readDirectory(const char *utf8DirectoryPath,
                            localModifiedTime.wYear, &modifiedDateSize);
     tmk_write("%s ", modifiedDate);
     freeArenaMemory(temporaryDataAllocator_g, modifiedDateSize);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_Layer_Foreground);
     tmk_write("%02d:%02d ", localModifiedTime.wHour, localModifiedTime.wMinute);
     if (entry.size) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%*s ", sizeColumnLength, entry.size);
     } else {
       tmk_resetFontColors();
@@ -261,7 +261,7 @@ static void readDirectory(const char *utf8DirectoryPath,
     PARSE_MODE(FILE_ATTRIBUTE_TEMPORARY, 't', tmk_ANSIColor_DarkRed);
     PARSE_MODE(FILE_ATTRIBUTE_REPARSE_POINT, 'l', tmk_ANSIColor_DarkGreen);
     if (entry.mode & FILE_ATTRIBUTE_DIRECTORY) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
     } else {
       tmk_resetFontColors();
     }
@@ -277,7 +277,7 @@ static void readDirectory(const char *utf8DirectoryPath,
   resetArenaAllocator(entriesDataAllocator_g);
 }
 #else
-static struct Credential *findCredential(bool isUser, unsigned int id) {
+static struct Credential *findCredential(int isUser, unsigned int id) {
   if (!userCredentialsAllocator_g || !groupCredentialsAllocator_g) {
     return NULL;
   }
@@ -378,8 +378,8 @@ static void readDirectory(const char *directoryPath) {
         formatSize(&sizeLength, entryStat.st_size, S_ISDIR(entryStat.st_mode));
     entry->modifiedTime = entryStat.st_mtime;
     entry->mode = entryStat.st_mode;
-    entry->user = findCredential(true, entryStat.st_uid);
-    entry->group = findCredential(false, entryStat.st_gid);
+    entry->user = findCredential(1, entryStat.st_uid);
+    entry->group = findCredential(0, entryStat.st_gid);
     entry->name = allocateArenaMemory(entriesDataAllocator_g, entryNameSize);
     memcpy(entry->name, entryData->d_name, entryNameSize);
     if (entry->user) {
@@ -393,7 +393,7 @@ static void readDirectory(const char *directoryPath) {
   closedir(directoryStream);
   int totalDigitsForIndex = countDigits(entriesAllocator_g->use);
   SAVE_GREATER(indexColumnLength, totalDigitsForIndex);
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
   if (!tmk_isStreamRedirected(tmk_Stream_Output)) {
     tmk_write(" ");
   }
@@ -414,7 +414,7 @@ static void readDirectory(const char *directoryPath) {
   writeLines(7, indexColumnLength, groupColumnLength, userColumnLength, 17,
              sizeColumnLength, 13, 20);
   if (!entriesAllocator_g->use) {
-    tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
     tmk_writeLine("%*s",
                   29 + indexColumnLength + groupColumnLength +
                       userColumnLength + sizeColumnLength,
@@ -425,13 +425,13 @@ static void readDirectory(const char *directoryPath) {
     struct Entry entry = *((struct Entry *)entriesAllocator_g->buffer + index);
     tmk_write("%*zu ", indexColumnLength, index + 1);
     if (entry.group) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%-*s ", groupColumnLength, entry.group->name.buffer);
     } else {
       tmk_write("%-*c ", groupColumnLength, '-');
     }
     if (entry.user) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_Layer_Foreground);
       tmk_write("%-*s ", userColumnLength, entry.user->name.buffer);
     } else {
       tmk_resetFontColors();
@@ -442,14 +442,14 @@ static void readDirectory(const char *directoryPath) {
     char *modifiedDate = formatModifiedDate(
         localModifiedTime->tm_mon, localModifiedTime->tm_mday,
         localModifiedTime->tm_year + 1900, &modifiedDateSize);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
     tmk_write("%s ", modifiedDate);
     freeArenaMemory(temporaryDataAllocator_g, modifiedDateSize);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_Layer_Foreground);
     tmk_write("%02d:%02d ", localModifiedTime->tm_hour,
               localModifiedTime->tm_min);
     if (entry.size) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%*s ", sizeColumnLength, entry.size);
     } else {
       tmk_resetFontColors();
@@ -464,7 +464,7 @@ static void readDirectory(const char *directoryPath) {
     PARSE_MODE(S_IROTH, 'r', tmk_ANSIColor_DarkRed);
     PARSE_MODE(S_IWOTH, 'w', tmk_ANSIColor_DarkGreen);
     PARSE_MODE(S_IXOTH, 'x', tmk_ANSIColor_DarkYellow);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_FontLayer_Foreground);
+    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_Layer_Foreground);
     tmk_write(" %-3o ",
               entry.mode & (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP |
                             S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH));
@@ -477,7 +477,7 @@ static void readDirectory(const char *directoryPath) {
                            : S_ISCHR(entry.mode)  ? tmk_ANSIColor_DarkGreen
                            : S_ISFIFO(entry.mode) ? tmk_ANSIColor_DarkBlue
                                                   : tmk_ANSIColor_DarkCyan,
-                           tmk_FontLayer_Foreground);
+                           tmk_Layer_Foreground);
     }
     if (tmk_isStreamRedirected(tmk_Stream_Output)) {
       tmk_write(S_ISDIR(entry.mode)    ? "d "
@@ -499,7 +499,7 @@ static void readDirectory(const char *directoryPath) {
     tmk_resetFontColors();
     tmk_write("%s", entry.name);
     if (entry.link) {
-      tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
+      tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
       tmk_write(" -> ");
       tmk_resetFontColors();
       tmk_writeLine(entry.link);
@@ -556,7 +556,7 @@ static int sortEntriesAlphabetically(const void *entryI, const void *entryII) {
 }
 
 static char *formatSize(size_t *bufferLength, unsigned long long entrySize,
-                        bool isDirectory) {
+                        int isDirectory) {
   if (isDirectory) {
     *bufferLength = 0;
     return NULL;
@@ -588,13 +588,13 @@ static int countDigits(size_t number) {
 }
 
 static void writeErrorArguments(const char *format, va_list arguments) {
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_writeError("[ERROR] ");
   tmk_resetFontColors();
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeError("dl");
   tmk_resetFontWeight();
-  tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
   tmk_writeError(" (code 1)");
   tmk_resetFontColors();
   tmk_writeError(": ");
@@ -621,7 +621,7 @@ static void writeHelpPage(void) {
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("❡ Usage");
   tmk_resetFontWeight();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_write("    %s ", PROGRAM_NAME);
   tmk_resetFontWeight();
@@ -640,7 +640,7 @@ static void writeHelpPage(void) {
   tmk_writeLine(
       "    If no path is given, it considers the current active directory.");
   tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
@@ -648,17 +648,17 @@ static void writeHelpPage(void) {
 #else
   tmk_writeLine("Its group and user.");
 #endif
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
   tmk_writeLine("Its last modified date.");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
   tmk_writeLine(
       "Its size in a human-readable unit: terabyte (TB), gigabyte (GB),");
   tmk_writeLine("      megabyte (MB), kilobyte (kB) or byte (B).");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
@@ -671,7 +671,7 @@ static void writeHelpPage(void) {
   tmk_writeLine("      group and others, respectively, and its representation "
                 "in octal base.");
 #endif
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
   tmk_writeLine("An icon or, in case of the terminal output stream is "
@@ -684,7 +684,7 @@ static void writeHelpPage(void) {
   tmk_writeLine(
       "      character device (c), fifo (f), socket (s) or regular (-).");
 #endif
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
 #if defined(_WIN32)
@@ -697,14 +697,14 @@ static void writeHelpPage(void) {
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeLine("❡ Available Options");
   tmk_resetFontWeight();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_write("--help: ");
   tmk_resetFontWeight();
   tmk_writeLine("writes these help instructions.");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • ");
   tmk_resetFontColors();
   tmk_setFontWeight(tmk_FontWeight_Bold);
@@ -716,16 +716,16 @@ static void writeHelpPage(void) {
   tmk_writeLine("❡ Homepage");
   tmk_resetFontWeight();
   tmk_write("    Its homepage is available on GitHub (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("*");
   tmk_resetFontColors();
   tmk_writeLine("1).");
   tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • *");
   tmk_resetFontColors();
   tmk_write("1: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_writeLine("https://github.com/skippyr/dl");
   tmk_resetFontEffects();
@@ -737,29 +737,29 @@ static void writeHelpPage(void) {
   tmk_writeLine("    If you need help related to this project, open a new "
                 "issue in its issues");
   tmk_write("    page (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("*");
   tmk_resetFontColors();
   tmk_write("1) or send me an e-mail (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("*");
   tmk_resetFontColors();
   tmk_writeLine("2) describing what is going on.");
   tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • *");
   tmk_resetFontColors();
   tmk_write("1: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_writeLine("https://github.com/skippyr/dl/issues");
   tmk_resetFontEffects();
   tmk_resetFontColors();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • *");
   tmk_resetFontColors();
   tmk_write("2: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_writeLine("skippyr.developer@icloud.com");
   tmk_resetFontEffects();
@@ -773,11 +773,11 @@ static void writeHelpPage(void) {
   tmk_writeLine("    fixes and suggestions. If you are interested, send your "
                 "contribution to its");
   tmk_write("    pull requests page (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("*");
   tmk_resetFontColors();
   tmk_write("1) or to my e-mail (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("*");
   tmk_resetFontColors();
   tmk_writeLine("2).");
@@ -786,20 +786,20 @@ static void writeHelpPage(void) {
                 "your work under the");
   tmk_writeLine("    same license that the project uses.");
   tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • *");
   tmk_resetFontColors();
   tmk_write("1: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_writeLine("https://github.com/skippyr/dl/pulls");
   tmk_resetFontEffects();
   tmk_resetFontColors();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_write("    • *");
   tmk_resetFontColors();
   tmk_write("2: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_writeLine("skippyr.developer@icloud.com");
   tmk_resetFontEffects();
@@ -816,17 +816,17 @@ static void writeHelpPage(void) {
 }
 
 static void writeVersionPage(void) {
-   tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_write("%s ", PROGRAM_NAME);
   tmk_resetFontWeight();
   tmk_resetFontColors();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
   tmk_write("%s ", PROGRAM_VERSION);
   tmk_resetFontColors();
   tmk_writeLine("compiled for %s %s.", tmk_OPERATING_SYSTEM,
                 tmk_CPU_ARCHITECTURE);
-  tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_FontLayer_Foreground);
+  tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
   tmk_write("Copyright (c) 2024, Sherman Rofeman <");
   tmk_setFontEffects(tmk_FontEffect_Underline);
   tmk_write("skippyr.developer@icloud.com");
@@ -835,7 +835,7 @@ static void writeVersionPage(void) {
   tmk_resetFontColors();
   tmk_writeLine("");
   for (int color = 1; color < 16; ++color) {
-    tmk_setFontANSIColor(color, tmk_FontLayer_Background);
+    tmk_setFontANSIColor(color, tmk_Layer_Background);
     tmk_write("   ");
   }
   tmk_resetFontColors();

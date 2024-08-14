@@ -14,7 +14,7 @@
 
 #define PARSE_MODE(mode_a, character_a, color_a)                               \
   if (entry.mode & mode_a) {                                                   \
-    tmk_setFontANSIColor(color_a, tmk_FontLayer_Foreground);                   \
+    tmk_setFontANSIColor(color_a, tmk_Layer_Foreground);                       \
   } else {                                                                     \
     tmk_resetFontColors();                                                     \
   }                                                                            \
@@ -94,7 +94,7 @@ static struct Credential *findCredential(const wchar_t *utf16DirectoryPath,
 static void readDirectory(const char *utf8DirectoryPath,
                           const wchar_t *utf16DirectoryPath);
 #else
-static struct Credential *findCredential(bool isUser, unsigned int id);
+static struct Credential *findCredential(int isUser, unsigned int id);
 static void readDirectory(const char *directoryPath);
 #endif
 static int sortEntriesAlphabetically(const void *entryI, const void *entryII);
@@ -102,7 +102,7 @@ static void writeLines(size_t totalLines, ...);
 static char *formatModifiedDate(int month, int day, int year,
                                 size_t *bufferSize);
 static char *formatSize(size_t *bufferLength, unsigned long long entrySize,
-                        bool isDirectory);
+                        int isDirectory);
 static int countDigits(size_t number);
 static void writeErrorArguments(const char *format, va_list arguments);
 static void writeError(const char *format, ...);
