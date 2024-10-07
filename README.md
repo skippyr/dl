@@ -21,7 +21,7 @@ An enhanced directory listing utility available for Windows, Linux and MacOS. It
   <img alt="" src="assets/preview-macos.png" width=1020 />
   <img alt="" src="assets/preview-windows.png" width=1020 />
 </p>
-<p align="center"><strong>Caption:</strong> <code>dl</code> being used to list a directory on MacOS and Windows. Terminal theme is <a href="https://github.com/skippyr/flamerial">Flamerial</a>. Shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a>. Font is Hack (patched by the <a href="https://www.nerdfonts.com/font-downloads">Nerd Fonts project</a>).</p>
+<p align="center"><strong>Caption:</strong> <code>dl</code> being used to list a directory on MacOS and Windows. Terminal theme is <a href="https://github.com/skippyr/dl">dl</a>. Shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a>. Font is Hack (patched by the <a href="https://www.nerdfonts.com/font-downloads">Nerd Fonts project</a>).</p>
 
 > [!NOTE]
 > The font and colors used in the software may be affected by your terminal settings. Images for illustration purpose only.
@@ -94,13 +94,13 @@ dl --help
 
 ## ❡ Help
 
-If you need help related to this project, open a new issue in its [issues page](https://github.com/skippyr/dl/issues) or send me an [e-mail](mailto:skippyr.developer@icloud.com) describing what is going on.
+If you need help related to this project, open a new issue in its [issues pages](https://github.com/skippyr/dl/issues) or send me an [e-mail](mailto:skippyr.developer@icloud.com) describing what is going on.
 
 ## ❡ Contributing
 
 This project is open to review and possibly accept contributions, specially fixes and suggestions. If you are interested, send your contribution to its [pull requests page](https://github.com/skippyr/dl/pulls) or to my [e-mail](mailto:skippyr.developer@icloud.com).
 
-By contributing to this project, you agree to license your work under the same license that the project uses.
+In order to keep it open-source, by contributing to this project, you must agree to license your work under the same license that the project uses. For other intentions, prefer to create a fork.
 
 ## ❡ License
 
