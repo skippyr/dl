@@ -21,7 +21,7 @@ An enhanced directory listing utility available for Windows, Linux and MacOS. It
   <img alt="" src="assets/preview-macos.png" width=1020 />
   <img alt="" src="assets/preview-windows.png" width=1020 />
 </p>
-<p align="center"><strong>Caption:</strong> <code>dl</code> being used to list a directory on MacOS and Windows. Terminal theme is <a href="https://github.com/skippyr/dl">dl</a>. Shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a>. Font is Hack (patched by the <a href="https://www.nerdfonts.com/font-downloads">Nerd Fonts project</a>).</p>
+<p align="center"><strong>Caption:</strong> <code>dl</code> being used to list a directory on MacOS and Windows. Terminal theme is <a href="https://github.com/skippyr/flamerial">Flamerial</a>. Shell theme is <a href="https://github.com/skippyr/river-dreams">River Dreams</a>. Font is Hack (patched by the <a href="https://www.nerdfonts.com/font-downloads">Nerd Fonts project</a>).</p>
 
 > [!NOTE]
 > The font and colors used in the software may be affected by your terminal settings. Images for illustration purpose only.
