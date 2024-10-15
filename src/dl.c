@@ -748,7 +748,7 @@ static void writeHelpPage(void) {
   tmk_resetFontWeight();
   tmk_write("[");
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("PATH");
+  tmk_write("DIRECTORIES");
   tmk_resetFontEffects();
   tmk_write("]...");
   tmk_write(" [");
