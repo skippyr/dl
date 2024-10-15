@@ -905,7 +905,7 @@ int main(int totalRawCMDArguments, const char **rawCMDArguments) {
   for (int offset = 1; offset < cmdArguments.totalArguments; ++offset) {
     if (cmdArguments.utf8Arguments[offset][0] == '-' &&
         cmdArguments.utf8Arguments[offset][1] == '-') {
-      writeError("the option \"%s\" is unrecognized or malformed.",
+      writeError("the option \"%s\" does not exists. Use --help for help instructions.",
                  cmdArguments.utf8Arguments[offset]);
       continue;
     }
