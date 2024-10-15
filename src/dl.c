@@ -786,7 +786,7 @@ static void writeHelpPage(void) {
                 "redirected, a letter");
   tmk_write("      representing its type:");
 #if tmk_IS_OPERATING_SYSTEM_WINDOWS
-  tmk_write("directory (d) or file (-).");
+  tmk_writeLine(" directory (d) or file (-).");
 #else
   tmk_writeLine("directory (d), symlink (l), block device (d),");
   tmk_writeLine(
