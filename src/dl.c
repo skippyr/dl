@@ -1,4 +1,128 @@
-#include "dl.h"
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <tmk.h>
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
+#include <Windows.h>
+#else
+#include <dirent.h>
+#include <grp.h>
+#include <pwd.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
+#define SOFTWARE_NAME "dl"
+#define SOFTWARE_VERSION "3.0.1"
+#define SOFTWARE_AUTHOR_NAME "Sherman Rofeman"
+#define SOFTWARE_AUTHOR_EMAIL "skippyr.developer@icloud.com"
+#define SOFTWARE_REPOSITORY_URL "https://github.com/skippyr/dl"
+#define SOFTWARE_LICENSE "BSD-3-Clause License"
+#define SOFTWARE_CREATION_YEAR 2024
+#define PARSE_MODE(mode_a, character_a, color_a)                               \
+  if (entry.mode & mode_a) {                                                   \
+    tmk_setFontAnsiColor(color_a, tmk_Layer_Foreground);                       \
+  } else {                                                                     \
+    tmk_resetFontColors();                                                     \
+  }                                                                            \
+  tmk_write("%c", entry.mode &mode_a ? character_a : '-');
+#define PARSE_OPTION(option_a, action_a)                                       \
+  if (!strcmp(cmdArguments.utf8Arguments[offset], "--" option_a)) {            \
+    action_a;                                                                  \
+    return 0;                                                                  \
+  }
+#define DEBUG false
+#define SAVE_GREATER(buffer_a, value_a)                                        \
+  if (value_a > buffer_a) {                                                    \
+    buffer_a = value_a;                                                        \
+  }
+
+struct String {
+  char *buffer;
+  size_t length;
+};
+
+struct SIMultiplier {
+  float value;
+  char prefix;
+};
+
+#if defined(_WIN32)
+struct Credential {
+  struct String user;
+  struct String domain;
+  PSID sid;
+};
+
+struct Entry {
+  char *name;
+  char *size;
+  struct Credential *credential;
+  FILETIME modifiedTime;
+  DWORD mode;
+};
+#else
+struct Credential {
+  struct String name;
+  uid_t id;
+};
+
+struct Entry {
+  char *name;
+  char *link;
+  char *size;
+  struct Credential *user;
+  struct Credential *group;
+  time_t modifiedTime;
+  mode_t mode;
+};
+#endif
+
+struct ArenaAllocator {
+  char *name;
+  char *buffer;
+  size_t use;
+  size_t capacity;
+  size_t unit;
+};
+
+#if defined(DEBUG)
+static void debugArenaAllocator(struct ArenaAllocator *allocator);
+#endif
+#if defined(_WIN32)
+static char *convertArenaUTF16ToUTF8(struct ArenaAllocator *allocator,
+                                     const wchar_t *utf16String,
+                                     size_t *utf8StringLength);
+static struct Credential *findCredential(const wchar_t *utf16DirectoryPath,
+                                         size_t globSize,
+                                         PWIN32_FIND_DATAW entryData);
+static void readDirectory(const char *utf8DirectoryPath,
+                          const wchar_t *utf16DirectoryPath);
+#else
+static struct Credential *findCredential(int isUser, unsigned int id);
+static void readDirectory(const char *directoryPath);
+#endif
+static int sortEntriesAlphabetically(const void *entryI, const void *entryII);
+static void writeLines(size_t totalLines, ...);
+static char *formatModifiedDate(int month, int day, int year,
+                                size_t *bufferSize);
+static char *formatSize(size_t *bufferLength, unsigned long long entrySize,
+                        int isDirectory);
+static int countDigits(size_t number);
+static void writeErrorArguments(const char *format, va_list arguments);
+static void writeError(const char *format, ...);
+static void throwError(const char *format, ...);
+static void writeHelpPage(void);
+static void writeVersionPage(void);
+static void *allocateHeapMemory(size_t totalBytes);
+static void createArenaAllocator(const char *name, size_t unit, size_t capacity,
+                                 struct ArenaAllocator **allocator);
+static void *allocateArenaMemory(struct ArenaAllocator *allocator,
+                                 size_t totalAllocations);
+static void resetArenaAllocator(struct ArenaAllocator *allocator);
+static void freeArenaMemory(struct ArenaAllocator *allocator,
+                            size_t totalAllocations);
+static void freeArenaAllocator(struct ArenaAllocator *allocator);
 
 #if tmk_IS_OPERATING_SYSTEM_WINDOWS
 static char *securityDescriptorBuffer_g = NULL;
@@ -21,7 +145,7 @@ static void debugArenaAllocator(struct ArenaAllocator *allocator) {
   if (!allocator) {
     return;
   }
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
+  tmk_setFontAnsiColor(tmk_AnsiColor_DarkRed, tmk_Layer_Foreground);
   tmk_write(":: ");
   tmk_resetFontColors();
   tmk_write("Allocator ");
@@ -182,7 +306,7 @@ static void readDirectory(const char *utf8DirectoryPath,
   SAVE_GREATER(indexColumnLength, totalDigitsForIndex);
   qsort(entriesAllocator_g->buffer, entriesAllocator_g->use,
         sizeof(struct Entry), sortEntriesAlphabetically);
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
+  tmk_setFontAnsiColor(tmk_AnsiColor_DarkYellow, tmk_Layer_Foreground);
   if (!tmk_isStreamRedirected(tmk_Stream_Output)) {
     tmk_write(" ");
   }
@@ -219,7 +343,7 @@ static void readDirectory(const char *utf8DirectoryPath,
   writeLines(7, indexColumnLength, domainColumnLength, userColumnLength, 17,
              sizeColumnLength, 5, 20);
   if (!entriesAllocator_g->use) {
-    tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
+    tmk_setFontAnsiColor(tmk_AnsiColor_LightBlack, tmk_Layer_Foreground);
     tmk_writeLine("%*s",
                   23 + indexColumnLength + domainColumnLength +
                       userColumnLength + sizeColumnLength,
@@ -230,14 +354,14 @@ static void readDirectory(const char *utf8DirectoryPath,
     struct Entry entry = *((struct Entry *)entriesAllocator_g->buffer + index);
     tmk_write("%*zu ", indexColumnLength, index + 1);
     if (entry.credential) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%-*s ", domainColumnLength, entry.credential->domain.buffer);
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkGreen, tmk_Layer_Foreground);
       tmk_write("%-*s ", userColumnLength, entry.credential->user.buffer);
     } else {
       tmk_write("%-*c %-*c ", domainColumnLength, '-', userColumnLength, '-');
     }
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
+    tmk_setFontAnsiColor(tmk_AnsiColor_DarkYellow, tmk_Layer_Foreground);
     SYSTEMTIME localModifiedTime;
     FileTimeToSystemTime(&entry.modifiedTime, &localModifiedTime);
     size_t modifiedDateSize;
@@ -246,22 +370,22 @@ static void readDirectory(const char *utf8DirectoryPath,
                            localModifiedTime.wYear, &modifiedDateSize);
     tmk_write("%s ", modifiedDate);
     freeArenaMemory(temporaryDataAllocator_g, modifiedDateSize);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_Layer_Foreground);
+    tmk_setFontAnsiColor(tmk_AnsiColor_DarkMagenta, tmk_Layer_Foreground);
     tmk_write("%02d:%02d ", localModifiedTime.wHour, localModifiedTime.wMinute);
     if (entry.size) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%*s ", sizeColumnLength, entry.size);
     } else {
       tmk_resetFontColors();
       tmk_write("%*c ", sizeColumnLength, '-');
     }
-    PARSE_MODE(FILE_ATTRIBUTE_HIDDEN, 'h', tmk_ANSIColor_DarkRed);
-    PARSE_MODE(FILE_ATTRIBUTE_ARCHIVE, 'a', tmk_ANSIColor_DarkGreen);
-    PARSE_MODE(FILE_ATTRIBUTE_READONLY, 'r', tmk_ANSIColor_DarkYellow);
-    PARSE_MODE(FILE_ATTRIBUTE_TEMPORARY, 't', tmk_ANSIColor_DarkRed);
-    PARSE_MODE(FILE_ATTRIBUTE_REPARSE_POINT, 'l', tmk_ANSIColor_DarkGreen);
+    PARSE_MODE(FILE_ATTRIBUTE_HIDDEN, 'h', tmk_AnsiColor_DarkRed);
+    PARSE_MODE(FILE_ATTRIBUTE_ARCHIVE, 'a', tmk_AnsiColor_DarkGreen);
+    PARSE_MODE(FILE_ATTRIBUTE_READONLY, 'r', tmk_AnsiColor_DarkYellow);
+    PARSE_MODE(FILE_ATTRIBUTE_TEMPORARY, 't', tmk_AnsiColor_DarkRed);
+    PARSE_MODE(FILE_ATTRIBUTE_REPARSE_POINT, 'l', tmk_AnsiColor_DarkGreen);
     if (entry.mode & FILE_ATTRIBUTE_DIRECTORY) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkYellow, tmk_Layer_Foreground);
     } else {
       tmk_resetFontColors();
     }
@@ -393,7 +517,7 @@ static void readDirectory(const char *directoryPath) {
   closedir(directoryStream);
   int totalDigitsForIndex = countDigits(entriesAllocator_g->use);
   SAVE_GREATER(indexColumnLength, totalDigitsForIndex);
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
+  tmk_setFontAnsiColor(tmk_AnsiColor_DarkYellow, tmk_Layer_Foreground);
   if (!tmk_isStreamRedirected(tmk_Stream_Output)) {
     tmk_write(" ");
   }
@@ -414,7 +538,7 @@ static void readDirectory(const char *directoryPath) {
   writeLines(7, indexColumnLength, groupColumnLength, userColumnLength, 17,
              sizeColumnLength, 13, 20);
   if (!entriesAllocator_g->use) {
-    tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
+    tmk_setFontAnsiColor(tmk_AnsiColor_LightBlack, tmk_Layer_Foreground);
     tmk_writeLine("%*s",
                   29 + indexColumnLength + groupColumnLength +
                       userColumnLength + sizeColumnLength,
@@ -425,13 +549,13 @@ static void readDirectory(const char *directoryPath) {
     struct Entry entry = *((struct Entry *)entriesAllocator_g->buffer + index);
     tmk_write("%*zu ", indexColumnLength, index + 1);
     if (entry.group) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%-*s ", groupColumnLength, entry.group->name.buffer);
     } else {
       tmk_write("%-*c ", groupColumnLength, '-');
     }
     if (entry.user) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkGreen, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkGreen, tmk_Layer_Foreground);
       tmk_write("%-*s ", userColumnLength, entry.user->name.buffer);
     } else {
       tmk_resetFontColors();
@@ -442,41 +566,41 @@ static void readDirectory(const char *directoryPath) {
     char *modifiedDate = formatModifiedDate(
         localModifiedTime->tm_mon, localModifiedTime->tm_mday,
         localModifiedTime->tm_year + 1900, &modifiedDateSize);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
+    tmk_setFontAnsiColor(tmk_AnsiColor_DarkYellow, tmk_Layer_Foreground);
     tmk_write("%s ", modifiedDate);
     freeArenaMemory(temporaryDataAllocator_g, modifiedDateSize);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_Layer_Foreground);
+    tmk_setFontAnsiColor(tmk_AnsiColor_DarkMagenta, tmk_Layer_Foreground);
     tmk_write("%02d:%02d ", localModifiedTime->tm_hour,
               localModifiedTime->tm_min);
     if (entry.size) {
-      tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_DarkRed, tmk_Layer_Foreground);
       tmk_write("%*s ", sizeColumnLength, entry.size);
     } else {
       tmk_resetFontColors();
       tmk_write("%*c ", sizeColumnLength, '-');
     }
-    PARSE_MODE(S_IRUSR, 'r', tmk_ANSIColor_DarkRed);
-    PARSE_MODE(S_IWUSR, 'w', tmk_ANSIColor_DarkGreen);
-    PARSE_MODE(S_IXUSR, 'x', tmk_ANSIColor_DarkYellow);
-    PARSE_MODE(S_IRGRP, 'r', tmk_ANSIColor_DarkRed);
-    PARSE_MODE(S_IWGRP, 'w', tmk_ANSIColor_DarkGreen);
-    PARSE_MODE(S_IXGRP, 'x', tmk_ANSIColor_DarkYellow);
-    PARSE_MODE(S_IROTH, 'r', tmk_ANSIColor_DarkRed);
-    PARSE_MODE(S_IWOTH, 'w', tmk_ANSIColor_DarkGreen);
-    PARSE_MODE(S_IXOTH, 'x', tmk_ANSIColor_DarkYellow);
-    tmk_setFontANSIColor(tmk_ANSIColor_DarkMagenta, tmk_Layer_Foreground);
+    PARSE_MODE(S_IRUSR, 'r', tmk_AnsiColor_DarkRed);
+    PARSE_MODE(S_IWUSR, 'w', tmk_AnsiColor_DarkGreen);
+    PARSE_MODE(S_IXUSR, 'x', tmk_AnsiColor_DarkYellow);
+    PARSE_MODE(S_IRGRP, 'r', tmk_AnsiColor_DarkRed);
+    PARSE_MODE(S_IWGRP, 'w', tmk_AnsiColor_DarkGreen);
+    PARSE_MODE(S_IXGRP, 'x', tmk_AnsiColor_DarkYellow);
+    PARSE_MODE(S_IROTH, 'r', tmk_AnsiColor_DarkRed);
+    PARSE_MODE(S_IWOTH, 'w', tmk_AnsiColor_DarkGreen);
+    PARSE_MODE(S_IXOTH, 'x', tmk_AnsiColor_DarkYellow);
+    tmk_setFontAnsiColor(tmk_AnsiColor_DarkMagenta, tmk_Layer_Foreground);
     tmk_write(" %-3o ",
               entry.mode & (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP |
                             S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH));
     if (S_ISREG(entry.mode)) {
       tmk_resetFontColors();
     } else {
-      tmk_setFontANSIColor(S_ISDIR(entry.mode)    ? tmk_ANSIColor_DarkYellow
-                           : S_ISLNK(entry.mode)  ? tmk_ANSIColor_DarkBlue
-                           : S_ISBLK(entry.mode)  ? tmk_ANSIColor_DarkMagenta
-                           : S_ISCHR(entry.mode)  ? tmk_ANSIColor_DarkGreen
-                           : S_ISFIFO(entry.mode) ? tmk_ANSIColor_DarkBlue
-                                                  : tmk_ANSIColor_DarkCyan,
+      tmk_setFontAnsiColor(S_ISDIR(entry.mode)    ? tmk_AnsiColor_DarkYellow
+                           : S_ISLNK(entry.mode)  ? tmk_AnsiColor_DarkBlue
+                           : S_ISBLK(entry.mode)  ? tmk_AnsiColor_DarkMagenta
+                           : S_ISCHR(entry.mode)  ? tmk_AnsiColor_DarkGreen
+                           : S_ISFIFO(entry.mode) ? tmk_AnsiColor_DarkBlue
+                                                  : tmk_AnsiColor_DarkCyan,
                            tmk_Layer_Foreground);
     }
     if (tmk_isStreamRedirected(tmk_Stream_Output)) {
@@ -499,7 +623,7 @@ static void readDirectory(const char *directoryPath) {
     tmk_resetFontColors();
     tmk_write("%s", entry.name);
     if (entry.link) {
-      tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
+      tmk_setFontAnsiColor(tmk_AnsiColor_LightBlack, tmk_Layer_Foreground);
       tmk_write(" -> ");
       tmk_resetFontColors();
       tmk_writeLine(entry.link);
@@ -588,13 +712,13 @@ static int countDigits(size_t number) {
 }
 
 static void writeErrorArguments(const char *format, va_list arguments) {
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
+  tmk_setFontAnsiColor(tmk_AnsiColor_DarkRed, tmk_Layer_Foreground);
   tmk_writeError("[ERROR] ");
   tmk_resetFontColors();
   tmk_setFontWeight(tmk_FontWeight_Bold);
   tmk_writeError("dl");
   tmk_resetFontWeight();
-  tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
+  tmk_setFontAnsiColor(tmk_AnsiColor_LightBlack, tmk_Layer_Foreground);
   tmk_writeError(" (code 1)");
   tmk_resetFontColors();
   tmk_writeError(": ");
@@ -618,228 +742,88 @@ static void throwError(const char *format, ...) {
 }
 
 static void writeHelpPage(void) {
+  tmk_write("Usage: ");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ Usage");
+  tmk_write("%s ", SOFTWARE_NAME);
   tmk_resetFontWeight();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_write("    %s ", PROGRAM_NAME);
-  tmk_resetFontWeight();
-  tmk_resetFontColors();
   tmk_write("[");
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("OPTION");
+  tmk_write("DIRECTORIES");
   tmk_resetFontEffects();
-  tmk_write(" | ");
+  tmk_write("]...");
+  tmk_write(" [");
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("PATH");
+  tmk_write("OPTIONS");
   tmk_resetFontEffects();
   tmk_writeLine("]...");
-  tmk_writeLine("    List the entries inside directories given their paths.");
+  tmk_writeLine(
+      "List the entries of directories given their paths as arguments.");
   tmk_writeLine("");
   tmk_writeLine(
-      "    If no path is given, it considers the current active directory.");
+      "If no path is given, it considers the current active directory.");
   tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-#if defined(_WIN32)
-  tmk_writeLine("Its domain and user.");
+  tmk_writeLine("For each entry, it shows:");
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
+  tmk_writeLine("    - Its domain and user.");
 #else
-  tmk_writeLine("Its group and user.");
+  tmk_writeLine("    - Its group and user.");
 #endif
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-  tmk_writeLine("Its last modified date.");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
+  tmk_writeLine("    - Its last modified date.");
   tmk_writeLine(
-      "Its size in a human-readable unit: terabyte (TB), gigabyte (GB),");
+      "    - Its size in a human-readable unit: terabyte (TB), gigabyte (GB),");
   tmk_writeLine("      megabyte (MB), kilobyte (kB) or byte (B).");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-#if defined(_WIN32)
-  tmk_writeLine("Its attributes: hidden (h), archive (a), read-only (r), "
-                "temporary (t) and");
-  tmk_writeLine("      reparse point (l).");
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
+  tmk_writeLine(
+      "    - Its attributes: hidden (h), archive (a), read-only (r),");
+  tmk_writeLine("      temporary (t) and reparse point (l).");
 #else
-  tmk_writeLine("Its read (r), write (w), execute (x) and lack (-) permissions "
-                "for user,");
+  tmk_writeLine("    - Its read (r), write (w), execute (x) and lack (-) "
+                "permissions for user,");
   tmk_writeLine("      group and others, respectively, and its representation "
                 "in octal base.");
 #endif
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-  tmk_writeLine("An icon or, in case of the terminal output stream is "
+  tmk_writeLine("    - An icon or, in case of the terminal output stream is "
                 "redirected, a letter");
-  tmk_write("      representing its type: ");
-#if defined(_WIN32)
-  tmk_writeLine("directory (d) or file (-).");
+  tmk_write("      representing its type:");
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
+  tmk_writeLine(" directory (d) or file (-).");
 #else
   tmk_writeLine("directory (d), symlink (l), block device (d),");
   tmk_writeLine(
       "      character device (c), fifo (f), socket (s) or regular (-).");
 #endif
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-#if defined(_WIN32)
-  tmk_writeLine("Its name.");
+#if tmk_IS_OPERATING_SYSTEM_WINDOWS
+  tmk_writeLine("    - Its name.");
 #else
-  tmk_writeLine(
-      "Its name. If it is a symlink, it also contains the path it points to.");
+  tmk_writeLine("    - Its name. If it is a symlink, it also contains the path "
+                "it points to.");
 #endif
   tmk_writeLine("");
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ Available Options");
+  tmk_writeLine("AVAILABLE OPTIONS");
   tmk_resetFontWeight();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_write("--help: ");
-  tmk_resetFontWeight();
-  tmk_writeLine("writes these help instructions.");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • ");
-  tmk_resetFontColors();
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_write("--version: ");
-  tmk_resetFontWeight();
-  tmk_writeLine("writes its version and platform.");
-  tmk_writeLine("");
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ Homepage");
-  tmk_resetFontWeight();
-  tmk_write("    Its homepage is available on GitHub (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("*");
-  tmk_resetFontColors();
-  tmk_writeLine("1).");
-  tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • *");
-  tmk_resetFontColors();
-  tmk_write("1: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_writeLine("https://github.com/skippyr/dl");
-  tmk_resetFontEffects();
-  tmk_resetFontColors();
-  tmk_writeLine("");
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ Help");
-  tmk_resetFontWeight();
-  tmk_writeLine("    If you need help related to this project, open a new "
-                "issue in its issues");
-  tmk_write("    page (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("*");
-  tmk_resetFontColors();
-  tmk_write("1) or send me an e-mail (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("*");
-  tmk_resetFontColors();
-  tmk_writeLine("2) describing what is going on.");
-  tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • *");
-  tmk_resetFontColors();
-  tmk_write("1: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_writeLine("https://github.com/skippyr/dl/issues");
-  tmk_resetFontEffects();
-  tmk_resetFontColors();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • *");
-  tmk_resetFontColors();
-  tmk_write("2: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_writeLine("skippyr.developer@icloud.com");
-  tmk_resetFontEffects();
-  tmk_resetFontColors();
-  tmk_writeLine("");
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ Contributing");
-  tmk_resetFontWeight();
-  tmk_writeLine("    This project is open to review and possibly accept "
-                "contributions, specially");
-  tmk_writeLine("    fixes and suggestions. If you are interested, send your "
-                "contribution to its");
-  tmk_write("    pull requests page (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("*");
-  tmk_resetFontColors();
-  tmk_write("1) or to my e-mail (");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("*");
-  tmk_resetFontColors();
-  tmk_writeLine("2).");
-  tmk_writeLine("");
-  tmk_writeLine("    By contributing to this project, you agree to license "
-                "your work under the");
-  tmk_writeLine("    same license that the project uses.");
-  tmk_writeLine("");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • *");
-  tmk_resetFontColors();
-  tmk_write("1: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_writeLine("https://github.com/skippyr/dl/pulls");
-  tmk_resetFontEffects();
-  tmk_resetFontColors();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_write("    • *");
-  tmk_resetFontColors();
-  tmk_write("2: ");
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
-  tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_writeLine("skippyr.developer@icloud.com");
-  tmk_resetFontEffects();
-  tmk_resetFontColors();
-  tmk_writeLine("");
-  tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_writeLine("❡ License");
-  tmk_resetFontWeight();
-  tmk_writeLine("    This is free software licensed under the BSD-3-Clause "
-                "License that comes");
-  tmk_writeLine("    WITH NO WARRANTY. Refer to the LICENSE file that comes in "
-                "its source code");
-  tmk_writeLine("    for license and copyright details.");
+  tmk_writeLine("    --help        Shows the software help instructions.");
+  tmk_writeLine("    --version     Shows the software version.");
 }
 
 static void writeVersionPage(void) {
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkRed, tmk_Layer_Foreground);
   tmk_setFontWeight(tmk_FontWeight_Bold);
-  tmk_write("%s ", PROGRAM_NAME);
+  tmk_write("%s ", SOFTWARE_NAME);
   tmk_resetFontWeight();
-  tmk_resetFontColors();
-  tmk_setFontANSIColor(tmk_ANSIColor_DarkYellow, tmk_Layer_Foreground);
-  tmk_write("%s ", PROGRAM_VERSION);
-  tmk_resetFontColors();
-  tmk_writeLine("compiled for %s %s.", tmk_OPERATING_SYSTEM,
+  tmk_writeLine("%s (running on %s %s)", SOFTWARE_VERSION, tmk_OPERATING_SYSTEM,
                 tmk_CPU_ARCHITECTURE);
-  tmk_setFontANSIColor(tmk_ANSIColor_LightBlack, tmk_Layer_Foreground);
-  tmk_write("Copyright (c) 2024, Sherman Rofeman <");
+  tmk_write("%s. Copyright © %d %s <", SOFTWARE_LICENSE, SOFTWARE_CREATION_YEAR,
+            SOFTWARE_AUTHOR_NAME);
   tmk_setFontEffects(tmk_FontEffect_Underline);
-  tmk_write("skippyr.developer@icloud.com");
+  tmk_write("%s", SOFTWARE_AUTHOR_EMAIL);
   tmk_resetFontEffects();
-  tmk_writeLine(">");
-  tmk_resetFontColors();
+  tmk_writeLine(">.");
   tmk_writeLine("");
-  for (int color = 1; color < 16; ++color) {
-    tmk_setFontANSIColor(color, tmk_Layer_Background);
-    tmk_write("   ");
-  }
-  tmk_resetFontColors();
-  tmk_writeLine("");
+  tmk_write("Software repository available at <");
+  tmk_setFontEffects(tmk_FontEffect_Underline);
+  tmk_write("%s", SOFTWARE_REPOSITORY_URL);
+  tmk_resetFontEffects();
+  tmk_writeLine(">.");
 }
 
 static void *allocateHeapMemory(size_t totalBytes) {
@@ -904,8 +888,8 @@ static void freeArenaAllocator(struct ArenaAllocator *allocator) {
 }
 
 int main(int totalRawCMDArguments, const char **rawCMDArguments) {
-  struct tmk_CMDArguments cmdArguments;
-  tmk_getCMDArguments(totalRawCMDArguments, rawCMDArguments, &cmdArguments);
+  struct tmk_CmdArguments cmdArguments;
+  tmk_getCmdArguments(totalRawCMDArguments, rawCMDArguments, &cmdArguments);
   if (cmdArguments.totalArguments == 1) {
 #if defined(_WIN32)
     readDirectory(".", L".");
@@ -921,7 +905,7 @@ int main(int totalRawCMDArguments, const char **rawCMDArguments) {
   for (int offset = 1; offset < cmdArguments.totalArguments; ++offset) {
     if (cmdArguments.utf8Arguments[offset][0] == '-' &&
         cmdArguments.utf8Arguments[offset][1] == '-') {
-      writeError("the option \"%s\" is unrecognized or malformed.",
+      writeError("the option \"%s\" does not exists. Use --help for help instructions.",
                  cmdArguments.utf8Arguments[offset]);
       continue;
     }
@@ -950,7 +934,7 @@ end_l:
   debugArenaAllocator(entriesDataAllocator_g);
   debugArenaAllocator(temporaryDataAllocator_g);
 #endif
-  tmk_freeCMDArguments(&cmdArguments);
+  tmk_freeCmdArguments(&cmdArguments);
 #if defined(_WIN32)
   if (securityDescriptorBuffer_g) {
     free(securityDescriptorBuffer_g);
