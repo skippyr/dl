@@ -807,6 +807,23 @@ static void writeHelpPage(void) {
 }
 
 static void writeVersionPage(void) {
+  tmk_setFontWeight(tmk_FontWeight_Bold);
+  tmk_write("%s ", SOFTWARE_NAME);
+  tmk_resetFontWeight();
+  tmk_writeLine("%s (running on %s %s)", SOFTWARE_VERSION, tmk_OPERATING_SYSTEM,
+                tmk_CPU_ARCHITECTURE);
+  tmk_write("%s. Copyright © %d %s <", SOFTWARE_LICENSE, SOFTWARE_CREATION_YEAR,
+            SOFTWARE_AUTHOR_NAME);
+  tmk_setFontEffects(tmk_FontEffect_Underline);
+  tmk_write("%s", SOFTWARE_AUTHOR_EMAIL);
+  tmk_resetFontEffects();
+  tmk_writeLine(">.");
+  tmk_writeLine("");
+  tmk_write("Software repository available at <");
+  tmk_setFontEffects(tmk_FontEffect_Underline);
+  tmk_write("%s", SOFTWARE_REPOSITORY_URL);
+  tmk_resetFontEffects();
+  tmk_writeLine(">.");
 }
 
 static void *allocateHeapMemory(size_t totalBytes) {
